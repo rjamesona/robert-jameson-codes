@@ -114,6 +114,11 @@ for (let i = 0; i < flowerCount; i++) {
   flower.base = flower.position.clone();
   flower.offset = Math.random() * Math.PI * 2;
   flower.speed = 0.3 + Math.random() * 0.7;
+  flower.orbitRadius = 0.25 + Math.random() * 0.45;
+  flower.orbitSpeed = 0.15 + Math.random() * 0.12;
+  flower.floatPhase = Math.random() * Math.PI * 2;
+  flower.verticalDrift = 0.08 + Math.random() * 0.18;
+  flower.pointerFollowStrength = 0.35 + Math.random() * 0.35;
   flower.driftAmplitude = new THREE.Vector3(
     0.25 + Math.random() * 0.45,
     0.18 + Math.random() * 0.35,
@@ -177,6 +182,7 @@ const fireflies = new THREE.Points(fireflyGeometry, fireflyMaterial);
 scene.add(fireflies);
 
 const pointer = new THREE.Vector2(0, 0);
+const smoothedPointer = new THREE.Vector2(0, 0);
 const targetRotation = new THREE.Euler();
 
 function handlePointer(event) {
@@ -191,6 +197,7 @@ window.addEventListener('touchmove', handlePointer, { passive: true });
 
 const clock = new THREE.Clock();
 const pointerTarget = new THREE.Vector3();
+const desiredCameraPosition = new THREE.Vector3();
 const lookUp = new THREE.Vector3(0, 1, 0);
 const tiltDirection = new THREE.Vector3();
 const origin = new THREE.Vector3();
@@ -202,51 +209,71 @@ const tempQuaternion = new THREE.Quaternion();
 function animate() {
   const elapsed = clock.getElapsedTime();
 
-  targetRotation.set(pointer.y * 0.1, pointer.x * 0.25, 0);
-  scene.rotation.x = THREE.MathUtils.lerp(scene.rotation.x, targetRotation.x, 0.02);
-  scene.rotation.y = THREE.MathUtils.lerp(scene.rotation.y, targetRotation.y, 0.03);
+  smoothedPointer.lerp(pointer, 0.04);
 
-  const desiredCamera = new THREE.Vector3(pointer.x * 0.6, 2.3 + pointer.y * 0.5, 8.5);
-  camera.position.lerp(desiredCamera, 0.02);
+  targetRotation.set(smoothedPointer.y * 0.07, smoothedPointer.x * 0.18, 0);
+  scene.rotation.x = THREE.MathUtils.lerp(scene.rotation.x, targetRotation.x, 0.02);
+  scene.rotation.y = THREE.MathUtils.lerp(scene.rotation.y, targetRotation.y, 0.024);
+
+  desiredCameraPosition.set(smoothedPointer.x * 0.45, 2.25 + smoothedPointer.y * 0.45, 8.2);
+  camera.position.lerp(desiredCameraPosition, 0.02);
   camera.lookAt(0, 0.6, 0);
 
-  pointerTarget.set(pointer.x * 4.5, 0.8 + pointer.y * 3.2, 0.2);
+  pointerTarget.set(smoothedPointer.x * 3.2, 0.9 + smoothedPointer.y * 2.4, 0.4);
 
   flowers.forEach((flower) => {
-    const wobble = Math.sin(elapsed * flower.speed + flower.offset) * 0.35;
-    const sway = Math.cos(elapsed * 0.6 + flower.offset) * 0.25;
-    const driftX = Math.sin(elapsed * (flower.speed * 0.4 + 0.25) + flower.offset * 0.7) * flower.driftAmplitude.x;
-    const driftY = Math.sin(elapsed * (flower.speed * 0.5 + 0.35) + flower.offset) * flower.driftAmplitude.y;
-    const driftZ = Math.cos(elapsed * (flower.speed * 0.4 + 0.25) + flower.offset * 0.9) * flower.driftAmplitude.z;
+    const time = elapsed * (0.6 + flower.speed * 0.3) + flower.offset;
+    const orbitAngle = time * (0.18 + flower.orbitSpeed * 0.6);
+    const wanderX =
+      Math.cos(orbitAngle) * flower.orbitRadius +
+      Math.sin(time * 0.8 + flower.floatPhase) * flower.driftAmplitude.x * 0.4;
+    const wanderZ =
+      Math.sin(orbitAngle * 1.1) * flower.orbitRadius +
+      Math.cos(time * 0.75 + flower.floatPhase * 0.5) * flower.driftAmplitude.z * 0.4;
+    const hoverY =
+      Math.sin(time * (0.7 + flower.orbitSpeed * 0.5) + flower.floatPhase) *
+      flower.verticalDrift;
+    const gentleRise = Math.sin(time * 0.45 + flower.floatPhase * 0.5) * 0.25;
 
-    flower.position.x = THREE.MathUtils.lerp(
-      flower.position.x,
-      flower.base.x + pointer.x * 1.5 + sway + driftX,
-      0.015 + flower.speed * 0.01
-    );
+    const pointerStrength = flower.pointerFollowStrength;
+    const targetX =
+      flower.base.x +
+      wanderX +
+      smoothedPointer.x * (0.35 + pointerStrength * 0.35);
+    const targetY =
+      flower.base.y +
+      hoverY +
+      gentleRise * 0.35 +
+      smoothedPointer.y * (0.28 + pointerStrength * 0.32);
+    const targetZ =
+      flower.base.z +
+      wanderZ +
+      smoothedPointer.x * (0.28 + pointerStrength * 0.3);
+
+    const positionLerp = 0.018 + flower.speed * 0.012;
+    flower.position.x = THREE.MathUtils.lerp(flower.position.x, targetX, positionLerp);
     flower.position.y = THREE.MathUtils.lerp(
       flower.position.y,
-      flower.base.y + wobble * 0.4 + pointer.y * 0.8 + driftY,
-      0.02 + flower.speed * 0.02
+      targetY,
+      positionLerp + 0.005
     );
-    flower.position.z = THREE.MathUtils.lerp(
-      flower.position.z,
-      flower.base.z + pointer.x * 0.9 + Math.sin(elapsed * 0.3 + flower.offset) * 0.5 + driftZ,
-      0.015 + flower.speed * 0.01
-    );
+    flower.position.z = THREE.MathUtils.lerp(flower.position.z, targetZ, positionLerp);
 
     tiltDirection.copy(pointerTarget).sub(flower.position);
-    const tiltLength = tiltDirection.length();
-    if (tiltLength > 0.0001) {
-      tiltDirection.normalize();
+    const tiltDistance = tiltDirection.length();
+    if (tiltDistance > 0.0001) {
+      const tiltFactor = THREE.MathUtils.smoothstep(0, 6, tiltDistance);
+      tiltDirection.divideScalar(tiltDistance);
       baseQuaternion.setFromAxisAngle(lookUp, flower.baseYaw + flower.spinAngle);
       tempMatrix.lookAt(origin, tiltDirection, lookUp);
       desiredQuaternion.setFromRotationMatrix(tempMatrix);
-      tempQuaternion.copy(baseQuaternion).slerp(desiredQuaternion, 0.35);
-      flower.quaternion.slerp(tempQuaternion, 0.05 + flower.speed * 0.015);
+      const blend = 0.12 + tiltFactor * 0.28;
+      tempQuaternion.copy(baseQuaternion).slerp(desiredQuaternion, blend);
+      const relaxRate = 0.018 + flower.speed * 0.012;
+      flower.quaternion.slerp(tempQuaternion, relaxRate);
     }
 
-    const slowSpin = 0.0025 + flower.speed * 0.001;
+    const slowSpin = 0.0018 + flower.speed * 0.0008;
     flower.spinAngle += slowSpin;
   });
 
