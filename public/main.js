@@ -81,14 +81,15 @@ function createFlower() {
   const baseColor = palette[Math.floor(Math.random() * palette.length)];
   const petalMaterial = createPetalMaterial(baseColor);
 
-  const petalGeometry = new THREE.CircleGeometry(0.45, 6);
+  const headScale = 0.5;
+  const petalGeometry = new THREE.CircleGeometry(0.45 * headScale, 6);
   petalGeometry.scale(0.65, 1, 1);
   petalGeometry.translate(0, 0, 0.01);
 
   for (let i = 0; i < petalCount; i++) {
     const petal = new THREE.Mesh(petalGeometry, petalMaterial);
     const angle = (i / petalCount) * Math.PI * 2;
-    const radius = 0.5;
+    const radius = 0.5 * headScale;
     petal.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
     petal.lookAt(0, 0.4, 0);
     petal.rotateX(THREE.MathUtils.degToRad(12));
@@ -132,7 +133,6 @@ function createFlower() {
 
   const initialThickness = THREE.MathUtils.lerp(0.85, 1.05, root.followProgress);
   stem.scale.set(initialThickness, root.headCurrent.length(), initialThickness);
-  stem.position.set(0, root.headCurrent.y * 0.5, 0);
 
   return root;
 }
@@ -176,7 +176,7 @@ function updateStem(flower) {
   }
 
   stem.scale.set(thickness, length, thickness);
-  stem.position.copy(headPosition).multiplyScalar(0.5);
+  stem.position.set(0, 0, 0);
 }
 
 // Fireflies
