@@ -612,6 +612,48 @@ const fireflyMaterial = new THREE.ShaderMaterial({
 const fireflies = new THREE.Points(fireflyGeometry, fireflyMaterial);
 scene.add(fireflies);
 
+// Cursor-following firefly
+const guideFireflyGeometry = new THREE.BufferGeometry();
+guideFireflyGeometry.setAttribute(
+  'position',
+  new THREE.Float32BufferAttribute([0, 0, 0], 3)
+);
+
+const guideFireflyMaterial = new THREE.ShaderMaterial({
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  uniforms: {
+    uTime: { value: 0 }
+  },
+  vertexShader: `
+    uniform float uTime;
+    varying float vBlink;
+    void main() {
+      vBlink = sin(uTime * 2.0) * 0.5 + 0.5;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      float size = mix(18.0, 26.0, vBlink);
+      gl_PointSize = size / -mvPosition.z;
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: `
+    varying float vBlink;
+    void main() {
+      float dist = length(gl_PointCoord - vec2(0.5));
+      float alpha = smoothstep(0.45, 0.0, dist);
+      vec3 warmGlow = vec3(1.0, 0.93, 0.66);
+      vec3 coolGlow = vec3(0.66, 0.86, 1.0);
+      vec3 color = mix(warmGlow, coolGlow, vBlink);
+      gl_FragColor = vec4(color, alpha);
+    }
+  `
+});
+
+const guideFirefly = new THREE.Points(guideFireflyGeometry, guideFireflyMaterial);
+guideFirefly.frustumCulled = false;
+scene.add(guideFirefly);
+
 const pointer = new THREE.Vector2(0, 0);
 const pointerSmoothed = new THREE.Vector2(0, 0);
 const POINTER_RESPONSE = 0.1;
@@ -622,6 +664,8 @@ const pointerWorldCurrent = new THREE.Vector3();
 const pointerDirection = new THREE.Vector3();
 const raycaster = new THREE.Raycaster();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const guideFireflyPosition = new THREE.Vector3(0, 0.9, 0);
+const guideFireflyTarget = new THREE.Vector3();
 
 function handlePointer(event) {
   const x = event.clientX ?? (event.touches && event.touches[0]?.clientX) ?? 0;
@@ -764,6 +808,19 @@ function animate() {
   });
 
   fireflyMaterial.uniforms.uTime.value = elapsed;
+  guideFireflyMaterial.uniforms.uTime.value = elapsed;
+
+  guideFireflyTarget.copy(pointerWorldTarget);
+  guideFireflyTarget.y += 0.85;
+  const slowFrames = Math.max(delta * 60, 1);
+  const followAmount = 1 - Math.pow(1 - 0.015, slowFrames);
+  guideFireflyPosition.lerp(guideFireflyTarget, followAmount);
+  const hover = Math.sin(elapsed * 2.2) * 0.05 + Math.sin(elapsed * 1.1) * 0.025;
+  guideFirefly.position.set(
+    guideFireflyPosition.x,
+    guideFireflyPosition.y + hover,
+    guideFireflyPosition.z
+  );
 
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
