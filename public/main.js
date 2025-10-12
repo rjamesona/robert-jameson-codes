@@ -47,6 +47,19 @@ const coreMaterial = new THREE.MeshLambertMaterial({
   flatShading: true
 });
 
+const stemMaterial = new THREE.MeshLambertMaterial({
+  color: '#3c9d7a',
+  emissive: '#1d5f49',
+  flatShading: true
+});
+
+const sharedStemGeometry = new THREE.CylinderGeometry(0.04, 0.055, 1, 10);
+sharedStemGeometry.translate(0, 0.5, 0);
+
+function easeInOut(t) {
+  return t * t * (3 - 2 * t);
+}
+
 function createPetalMaterial(baseColor) {
   const color = baseColor.clone().lerp(new THREE.Color('#f5f7ff'), 0.25);
   return new THREE.MeshLambertMaterial({
@@ -60,7 +73,9 @@ function createPetalMaterial(baseColor) {
 }
 
 function createFlower() {
-  const group = new THREE.Group();
+  const root = new THREE.Group();
+
+  const head = new THREE.Group();
 
   const petalCount = 6 + Math.floor(Math.random() * 4);
   const baseColor = palette[Math.floor(Math.random() * palette.length)];
@@ -77,25 +92,49 @@ function createFlower() {
     petal.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
     petal.lookAt(0, 0.4, 0);
     petal.rotateX(THREE.MathUtils.degToRad(12));
-    group.add(petal);
+    head.add(petal);
   }
 
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 0), coreMaterial);
   core.position.y = 0.05;
-  group.add(core);
+  head.add(core);
 
-  const stemMaterial = new THREE.MeshLambertMaterial({
-    color: '#3c9d7a',
-    emissive: '#1d5f49',
-    flatShading: true
-  });
-  const stemGeometry = new THREE.CylinderGeometry(0.04, 0.045, 1.4, 6);
-  stemGeometry.translate(0, -0.7, 0);
-  const stem = new THREE.Mesh(stemGeometry, stemMaterial);
-  stem.position.y = -0.9;
-  group.add(stem);
+  const stem = new THREE.Mesh(sharedStemGeometry, stemMaterial);
+  root.add(stem);
+  root.add(head);
 
-  return group;
+  const fullHeight = 1.3 + Math.random() * 1.5;
+  const minHeight = 0.35 + Math.random() * 0.25;
+
+  head.position.y = minHeight;
+
+  root.head = head;
+  root.stem = stem;
+  root.fullHeight = fullHeight;
+  root.minHeight = minHeight;
+  root.headBase = new THREE.Vector3(0, minHeight, 0);
+  root.headTarget = root.headBase.clone();
+  root.headCurrent = root.headBase.clone();
+
+  root.pointerInfluence = 0.9 + Math.random() * 1.1;
+  root.swayAmount = 0.3 + Math.random() * 0.35;
+  root.bobAmount = 0.18 + Math.random() * 0.22;
+  root.swingSpeed = 0.6 + Math.random() * 0.5;
+  root.bobSpeed = 0.9 + Math.random() * 0.6;
+  root.baseDriftSpeed = 0.18 + Math.random() * 0.12;
+  root.headSpin = 0.001 + Math.random() * 0.0025;
+  root.followDelay = Math.random() * 2.6;
+  root.rampDuration = 1.2 + Math.random() * 1.4;
+  root.followLerp = 0.04 + Math.random() * 0.05;
+  root.swingPhase = Math.random() * Math.PI * 2;
+  root.basePhase = Math.random() * Math.PI * 2;
+  root.followProgress = 0;
+
+  const initialThickness = THREE.MathUtils.lerp(0.85, 1.05, root.followProgress);
+  stem.scale.set(initialThickness, root.headCurrent.length(), initialThickness);
+  stem.position.set(0, root.headCurrent.y * 0.5, 0);
+
+  return root;
 }
 
 for (let i = 0; i < flowerCount; i++) {
@@ -108,12 +147,36 @@ for (let i = 0; i < flowerCount; i++) {
     height,
     Math.sin(angle) * radius
   );
-  flower.rotation.y = Math.random() * Math.PI * 2;
   flower.base = flower.position.clone();
-  flower.offset = Math.random() * Math.PI * 2;
-  flower.speed = 0.3 + Math.random() * 0.7;
+  flower.rotation.y = Math.random() * Math.PI * 2;
+  flower.baseRotation = flower.rotation.y;
   flowers.push(flower);
   scene.add(flower);
+}
+
+const stemUp = new THREE.Vector3(0, 1, 0);
+const stemDirection = new THREE.Vector3();
+const stemQuaternion = new THREE.Quaternion();
+
+function updateStem(flower) {
+  const headPosition = flower.headCurrent;
+  const stem = flower.stem;
+
+  const length = Math.max(headPosition.length(), 0.08);
+  const thickness = THREE.MathUtils.lerp(0.85, 1.05, flower.followProgress);
+
+  stemDirection.copy(headPosition);
+
+  if (stemDirection.lengthSq() < 1e-6) {
+    stem.quaternion.identity();
+  } else {
+    stemDirection.normalize();
+    stemQuaternion.setFromUnitVectors(stemUp, stemDirection);
+    stem.quaternion.copy(stemQuaternion);
+  }
+
+  stem.scale.set(thickness, length, thickness);
+  stem.position.copy(headPosition).multiplyScalar(0.5);
 }
 
 // Fireflies
@@ -171,6 +234,7 @@ scene.add(fireflies);
 
 const pointer = new THREE.Vector2(0, 0);
 const targetRotation = new THREE.Euler();
+const pointerOffset = new THREE.Vector3();
 
 function handlePointer(event) {
   const x = event.clientX ?? (event.touches && event.touches[0]?.clientX) ?? 0;
@@ -196,25 +260,52 @@ function animate() {
   camera.lookAt(0, 0.6, 0);
 
   flowers.forEach((flower) => {
-    const wobble = Math.sin(elapsed * flower.speed + flower.offset) * 0.35;
-    const sway = Math.cos(elapsed * 0.6 + flower.offset) * 0.25;
-    flower.position.x = THREE.MathUtils.lerp(
-      flower.position.x,
-      flower.base.x + pointer.x * 1.5 + sway,
-      0.015 + flower.speed * 0.01
+    const timeSinceStart = Math.max(0, elapsed - flower.followDelay);
+    const ramp = THREE.MathUtils.clamp(timeSinceStart / flower.rampDuration, 0, 1);
+    const eased = easeInOut(ramp);
+    flower.followProgress = eased;
+
+    const growthHeight = THREE.MathUtils.lerp(flower.minHeight, flower.fullHeight, eased);
+    flower.headBase.y = growthHeight;
+
+    const sway = Math.sin(elapsed * flower.swingSpeed + flower.swingPhase) * flower.swayAmount;
+    const swayZ =
+      Math.cos(elapsed * (flower.swingSpeed * 0.75) + flower.basePhase) * flower.swayAmount * 0.7;
+    const bob = Math.sin(elapsed * flower.bobSpeed + flower.swingPhase) * flower.bobAmount;
+
+    pointerOffset.set(pointer.x * 1.4, pointer.y * 1.1, pointer.x * 1.2);
+    pointerOffset.multiplyScalar(flower.pointerInfluence);
+
+    flower.headTarget.set(
+      flower.headBase.x + sway + pointerOffset.x * eased,
+      flower.headBase.y + bob + pointerOffset.y * eased,
+      flower.headBase.z + swayZ + pointerOffset.z * eased
     );
-    flower.position.y = THREE.MathUtils.lerp(
-      flower.position.y,
-      flower.base.y + wobble * 0.4 + pointer.y * 0.8,
-      0.02 + flower.speed * 0.02
-    );
-    flower.position.z = THREE.MathUtils.lerp(
-      flower.position.z,
-      flower.base.z + pointer.x * 0.9 + Math.sin(elapsed * 0.3 + flower.offset) * 0.5,
-      0.015 + flower.speed * 0.01
-    );
-    flower.rotation.y += 0.004 + flower.speed * 0.0025;
-    flower.rotation.x = Math.sin(elapsed * 0.15 + flower.offset) * 0.08;
+
+    flower.headCurrent.lerp(flower.headTarget, flower.followLerp);
+    flower.head.position.copy(flower.headCurrent);
+
+    flower.head.rotation.y += flower.headSpin;
+    flower.head.rotation.x = Math.sin(elapsed * 0.18 + flower.basePhase) * THREE.MathUtils.degToRad(6);
+
+    updateStem(flower);
+
+    const baseTargetX =
+      flower.base.x + Math.sin(elapsed * flower.baseDriftSpeed + flower.basePhase) * 0.18;
+    const baseTargetZ =
+      flower.base.z + Math.cos(elapsed * (flower.baseDriftSpeed * 0.85) + flower.basePhase) * 0.18;
+    const baseTargetY =
+      flower.base.y + Math.sin(elapsed * 0.45 + flower.basePhase) * 0.14;
+
+    flower.position.x = THREE.MathUtils.lerp(flower.position.x, baseTargetX, 0.035);
+    flower.position.y = THREE.MathUtils.lerp(flower.position.y, baseTargetY, 0.045);
+    flower.position.z = THREE.MathUtils.lerp(flower.position.z, baseTargetZ, 0.035);
+
+    const rotationTargetY = flower.baseRotation + pointer.x * 0.3 * eased + sway * 0.1;
+    flower.rotation.y = THREE.MathUtils.lerp(flower.rotation.y, rotationTargetY, 0.04);
+
+    const rotationTargetX = pointer.y * 0.12 * eased + Math.sin(elapsed * 0.25 + flower.swingPhase) * 0.08;
+    flower.rotation.x = THREE.MathUtils.lerp(flower.rotation.x, rotationTargetX, 0.05);
   });
 
   fireflyMaterial.uniforms.uTime.value = elapsed;
