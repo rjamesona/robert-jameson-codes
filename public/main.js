@@ -1,7 +1,12 @@
 import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+function updateRendererPixelRatio() {
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+}
+
+updateRendererPixelRatio();
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.domElement.classList.add('webgl');
@@ -613,10 +618,11 @@ window.addEventListener('touchmove', handlePointer, { passive: true });
 
 const clock = new THREE.Clock();
 let previousElapsed = 0;
+const desiredCameraPosition = new THREE.Vector3();
 
 function animate() {
   const elapsed = clock.getElapsedTime();
-  const delta = elapsed - previousElapsed;
+  const delta = Math.min(elapsed - previousElapsed, 0.1);
   previousElapsed = elapsed;
 
   raycaster.setFromCamera(pointer, camera);
@@ -629,8 +635,8 @@ function animate() {
   scene.rotation.x = THREE.MathUtils.lerp(scene.rotation.x, targetRotation.x, 0.02);
   scene.rotation.y = THREE.MathUtils.lerp(scene.rotation.y, targetRotation.y, 0.03);
 
-  const desiredCamera = new THREE.Vector3(pointer.x * 0.6, 2.3 + pointer.y * 0.5, 8.5);
-  camera.position.lerp(desiredCamera, 0.02);
+  desiredCameraPosition.set(pointer.x * 0.6, 2.3 + pointer.y * 0.5, 8.5);
+  camera.position.lerp(desiredCameraPosition, 0.02);
   camera.lookAt(0, 0.6, 0);
 
   flowers.forEach((flower) => {
@@ -745,6 +751,7 @@ animate();
 function handleResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
+  updateRendererPixelRatio();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
