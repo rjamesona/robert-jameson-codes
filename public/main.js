@@ -126,7 +126,7 @@ function createCurvedPetalGeometry({
   return geometry;
 }
 
-function buildRingPetals(head, material, options) {
+function buildRingPetals(head, material, options = {}) {
   const {
     count,
     length,
@@ -142,30 +142,45 @@ function buildRingPetals(head, material, options) {
     arch = 0.16
   } = options;
 
+  const safeCount = Math.max(Math.floor(Number.isFinite(count) ? count : 0), 0);
+  if (safeCount === 0) {
+    return;
+  }
+
+  const safeRadius = Number.isFinite(radius) ? radius : 0;
+  const safeTilt = Number.isFinite(tilt) ? tilt : THREE.MathUtils.degToRad(48);
+  const safeOffsetY = Number.isFinite(offsetY) ? offsetY : 0;
+  const safeTwist = Number.isFinite(twist) ? twist : 0;
+  const safeRandomness = Number.isFinite(randomness) ? randomness : 0.08;
+  const safeTaper = Number.isFinite(taper) ? taper : 0.24;
+  const safeCurl = Number.isFinite(curl) ? curl : 0.2;
+  const safeTipCurl = Number.isFinite(tipCurl) ? tipCurl : 0.32;
+  const safeArch = Number.isFinite(arch) ? arch : 0.16;
+
   const group = new THREE.Group();
 
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < safeCount; i++) {
     const petalGeometry = createCurvedPetalGeometry({
       length,
       width,
-      taper: taper * THREE.MathUtils.lerp(0.9, 1.1, Math.random()),
-      curl: curl * THREE.MathUtils.lerp(0.85, 1.2, Math.random()),
-      tipCurl: tipCurl * THREE.MathUtils.lerp(0.85, 1.25, Math.random()),
-      arch: arch * THREE.MathUtils.lerp(0.85, 1.25, Math.random()),
+      taper: safeTaper * THREE.MathUtils.lerp(0.9, 1.1, Math.random()),
+      curl: safeCurl * THREE.MathUtils.lerp(0.85, 1.2, Math.random()),
+      tipCurl: safeTipCurl * THREE.MathUtils.lerp(0.85, 1.25, Math.random()),
+      arch: safeArch * THREE.MathUtils.lerp(0.85, 1.25, Math.random()),
       segments: 10
     });
 
     const petal = new THREE.Mesh(petalGeometry, material);
-    const angle = (i / count) * Math.PI * 2;
-    const randomTilt = (Math.random() - 0.5) * randomness;
-    const randomTwist = (Math.random() - 0.5) * randomness * 0.8;
+    const angle = (i / safeCount) * Math.PI * 2;
+    const randomTilt = (Math.random() - 0.5) * safeRandomness;
+    const randomTwist = (Math.random() - 0.5) * safeRandomness * 0.8;
     const baseBend = THREE.MathUtils.degToRad(THREE.MathUtils.randFloatSpread(4));
     petal.position.set(
-      Math.cos(angle) * radius,
-      offsetY,
-      Math.sin(angle) * radius
+      Math.cos(angle) * safeRadius,
+      safeOffsetY,
+      Math.sin(angle) * safeRadius
     );
-    petal.rotation.set(tilt + randomTilt, angle + twist, baseBend + randomTwist);
+    petal.rotation.set(safeTilt + randomTilt, angle + safeTwist, baseBend + randomTwist);
     petal.castShadow = false;
     petal.receiveShadow = false;
     group.add(petal);
