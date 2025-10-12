@@ -85,35 +85,81 @@ function createPetalMaterial(baseColor, options = {}) {
   });
 }
 
+function createCurvedPetalGeometry({
+  length,
+  width,
+  segments = 8,
+  taper = 0.28,
+  curl = 0.22,
+  tipCurl = 0.35,
+  arch = 0.18
+}) {
+  const geometry = new THREE.PlaneGeometry(width, length, 1, segments);
+  const position = geometry.attributes.position;
+  const temp = new THREE.Vector3();
+
+  for (let i = 0; i < position.count; i++) {
+    temp.fromBufferAttribute(position, i);
+    const progress = (temp.y + length / 2) / length;
+    const taperedX = temp.x * THREE.MathUtils.lerp(1, taper, progress);
+    const forwardCurl = Math.sin(progress * Math.PI * 0.85) * curl * length;
+    const tipLift = Math.pow(progress, 2.1) * tipCurl * length;
+    const verticalArch = Math.sin(progress * Math.PI) * arch * length;
+
+    temp.set(taperedX, temp.y + length / 2, forwardCurl + tipLift);
+    temp.z += verticalArch;
+
+    position.setXYZ(i, temp.x, temp.y, temp.z);
+  }
+
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  geometry.computeBoundingBox();
+  return geometry;
+}
+
 function buildRingPetals(head, material, options) {
   const {
     count,
     length,
     width,
-    thickness = width * 0.35,
     radius = 0,
     tilt = THREE.MathUtils.degToRad(48),
     offsetY = 0,
     twist = 0,
-    randomness = 0.08
+    randomness = 0.08,
+    taper = 0.24,
+    curl = 0.2,
+    tipCurl = 0.32,
+    arch = 0.16
   } = options;
-
-  const geometry = new THREE.BoxGeometry(width, length, thickness);
-  geometry.translate(0, length / 2, 0);
 
   const group = new THREE.Group();
 
   for (let i = 0; i < count; i++) {
-    const petal = new THREE.Mesh(geometry, material);
+    const petalGeometry = createCurvedPetalGeometry({
+      length,
+      width,
+      taper: taper * THREE.MathUtils.lerp(0.9, 1.1, Math.random()),
+      curl: curl * THREE.MathUtils.lerp(0.85, 1.2, Math.random()),
+      tipCurl: tipCurl * THREE.MathUtils.lerp(0.85, 1.25, Math.random()),
+      arch: arch * THREE.MathUtils.lerp(0.85, 1.25, Math.random()),
+      segments: 10
+    });
+
+    const petal = new THREE.Mesh(petalGeometry, material);
     const angle = (i / count) * Math.PI * 2;
     const randomTilt = (Math.random() - 0.5) * randomness;
     const randomTwist = (Math.random() - 0.5) * randomness * 0.8;
+    const baseBend = THREE.MathUtils.degToRad(THREE.MathUtils.randFloatSpread(4));
     petal.position.set(
       Math.cos(angle) * radius,
       offsetY,
       Math.sin(angle) * radius
     );
-    petal.rotation.set(tilt + randomTilt, angle + twist, randomTwist);
+    petal.rotation.set(tilt + randomTilt, angle + twist, baseBend + randomTwist);
+    petal.castShadow = false;
+    petal.receiveShadow = false;
     group.add(petal);
   }
 
@@ -140,7 +186,11 @@ const flowerTypes = [
         radius: 0.12 * headScale,
         tilt: THREE.MathUtils.degToRad(52),
         offsetY: 0.08 * headScale,
-        randomness: 0.12
+        randomness: 0.12,
+        taper: 0.2,
+        curl: 0.24,
+        tipCurl: 0.42,
+        arch: 0.22
       });
 
       const accentMaterial = createPetalMaterial(
@@ -154,7 +204,11 @@ const flowerTypes = [
         radius: 0.06 * headScale,
         tilt: THREE.MathUtils.degToRad(34),
         offsetY: 0.12 * headScale,
-        randomness: 0.08
+        randomness: 0.08,
+        taper: 0.32,
+        curl: 0.18,
+        tipCurl: 0.3,
+        arch: 0.18
       });
     },
     addDetails(head, baseColor, headScale) {
@@ -194,7 +248,11 @@ const flowerTypes = [
         radius: 0.08 * headScale,
         tilt: THREE.MathUtils.degToRad(68),
         offsetY: 0.04 * headScale,
-        randomness: 0.09
+        randomness: 0.09,
+        taper: 0.14,
+        curl: 0.32,
+        tipCurl: 0.48,
+        arch: 0.24
       });
 
       const innerMaterial = createPetalMaterial(
@@ -208,7 +266,11 @@ const flowerTypes = [
         radius: 0.03 * headScale,
         tilt: THREE.MathUtils.degToRad(32),
         offsetY: 0.2 * headScale,
-        randomness: 0.05
+        randomness: 0.05,
+        taper: 0.28,
+        curl: 0.22,
+        tipCurl: 0.38,
+        arch: 0.18
       });
     },
     addDetails(head, baseColor, headScale = 1) {
@@ -245,7 +307,11 @@ const flowerTypes = [
         radius: 0.18 * headScale,
         tilt: THREE.MathUtils.degToRad(40),
         offsetY: 0.1 * headScale,
-        randomness: 0.14
+        randomness: 0.14,
+        taper: 0.26,
+        curl: 0.2,
+        tipCurl: 0.34,
+        arch: 0.2
       });
 
       const shimmerMaterial = createPetalMaterial(
@@ -259,7 +325,11 @@ const flowerTypes = [
         radius: 0.2 * headScale,
         tilt: THREE.MathUtils.degToRad(24),
         offsetY: 0.18 * headScale,
-        randomness: 0.18
+        randomness: 0.18,
+        taper: 0.38,
+        curl: 0.18,
+        tipCurl: 0.26,
+        arch: 0.14
       });
     },
     addDetails(head, baseColor, headScale = 1) {
