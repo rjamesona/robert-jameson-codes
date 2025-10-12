@@ -94,19 +94,27 @@ function createCurvedPetalGeometry({
   tipCurl = 0.35,
   arch = 0.18
 }) {
-  const geometry = new THREE.PlaneGeometry(width, length, 1, segments);
+  const safeSegments = Math.max(Math.floor(Number.isFinite(segments) ? segments : 8), 1);
+  const safeLength = Math.max(Math.abs(Number.isFinite(length) ? length : 1), 0.001);
+  const safeWidth = Math.max(Math.abs(Number.isFinite(width) ? width : 1), 0.001);
+  const safeTaper = Number.isFinite(taper) ? taper : 0.28;
+  const safeCurl = Number.isFinite(curl) ? curl : 0.22;
+  const safeTipCurl = Number.isFinite(tipCurl) ? tipCurl : 0.35;
+  const safeArch = Number.isFinite(arch) ? arch : 0.18;
+
+  const geometry = new THREE.PlaneGeometry(safeWidth, safeLength, 1, safeSegments);
   const position = geometry.attributes.position;
   const temp = new THREE.Vector3();
 
   for (let i = 0; i < position.count; i++) {
     temp.fromBufferAttribute(position, i);
-    const progress = (temp.y + length / 2) / length;
-    const taperedX = temp.x * THREE.MathUtils.lerp(1, taper, progress);
-    const forwardCurl = Math.sin(progress * Math.PI * 0.85) * curl * length;
-    const tipLift = Math.pow(progress, 2.1) * tipCurl * length;
-    const verticalArch = Math.sin(progress * Math.PI) * arch * length;
+    const progress = (temp.y + safeLength / 2) / safeLength;
+    const taperedX = temp.x * THREE.MathUtils.lerp(1, safeTaper, progress);
+    const forwardCurl = Math.sin(progress * Math.PI * 0.85) * safeCurl * safeLength;
+    const tipLift = Math.pow(progress, 2.1) * safeTipCurl * safeLength;
+    const verticalArch = Math.sin(progress * Math.PI) * safeArch * safeLength;
 
-    temp.set(taperedX, temp.y + length / 2, forwardCurl + tipLift);
+    temp.set(taperedX, temp.y + safeLength / 2, forwardCurl + tipLift);
     temp.z += verticalArch;
 
     position.setXYZ(i, temp.x, temp.y, temp.z);
