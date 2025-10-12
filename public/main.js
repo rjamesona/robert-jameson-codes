@@ -41,11 +41,14 @@ const palette = [
   new THREE.Color('#ffd57b')
 ];
 
-const coreMaterial = new THREE.MeshLambertMaterial({
-  color: '#ffe59f',
-  emissive: '#f3c56b',
-  flatShading: true
-});
+const pastelGoldenRatio = 0.61803398875;
+
+function getPastelColor(index) {
+  const hue = (index * pastelGoldenRatio) % 1;
+  const color = new THREE.Color();
+  color.setHSL(hue, 0.45, 0.82);
+  return color;
+}
 
 const stemMaterial = new THREE.MeshLambertMaterial({
   color: '#3c9d7a',
@@ -77,7 +80,16 @@ function createPetalMaterial(baseColor) {
   });
 }
 
-function createFlower() {
+function createCoreMaterial(index) {
+  const color = getPastelColor(index);
+  return new THREE.MeshLambertMaterial({
+    color,
+    emissive: color.clone().multiplyScalar(0.35),
+    flatShading: true
+  });
+}
+
+function createFlower(index) {
   const root = new THREE.Group();
 
   const head = new THREE.Group();
@@ -101,6 +113,7 @@ function createFlower() {
     head.add(petal);
   }
 
+  const coreMaterial = createCoreMaterial(index);
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 0), coreMaterial);
   core.position.y = 0.05;
   head.add(core);
@@ -146,7 +159,7 @@ function createFlower() {
 }
 
 for (let i = 0; i < flowerCount; i++) {
-  const flower = createFlower();
+  const flower = createFlower(i);
   const radius = 0.6 + Math.random() * 4.2;
   const angle = Math.random() * Math.PI * 2;
   const height = (Math.random() * 2 - 1) * 1.8;
