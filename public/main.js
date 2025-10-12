@@ -72,16 +72,217 @@ function slowStartRamp(t) {
   return eased * eased;
 }
 
-function createPetalMaterial(baseColor) {
+function createPetalMaterial(baseColor, options = {}) {
   const color = baseColor.clone().lerp(new THREE.Color('#f5f7ff'), 0.25);
+  const { emissiveMultiplier = 0.2, opacity = 0.9 } = options;
   return new THREE.MeshLambertMaterial({
     color,
-    emissive: baseColor.clone().multiplyScalar(options.emissiveMultiplier ?? 0.2),
+    emissive: baseColor.clone().multiplyScalar(emissiveMultiplier),
     flatShading: true,
     transparent: true,
-    opacity: options.opacity ?? 0.9,
+    opacity,
     side: THREE.DoubleSide
   });
+}
+
+function buildRingPetals(head, material, options) {
+  const {
+    count,
+    length,
+    width,
+    thickness = width * 0.35,
+    radius = 0,
+    tilt = THREE.MathUtils.degToRad(48),
+    offsetY = 0,
+    twist = 0,
+    randomness = 0.08
+  } = options;
+
+  const geometry = new THREE.BoxGeometry(width, length, thickness);
+  geometry.translate(0, length / 2, 0);
+
+  const group = new THREE.Group();
+
+  for (let i = 0; i < count; i++) {
+    const petal = new THREE.Mesh(geometry, material);
+    const angle = (i / count) * Math.PI * 2;
+    const randomTilt = (Math.random() - 0.5) * randomness;
+    const randomTwist = (Math.random() - 0.5) * randomness * 0.8;
+    petal.position.set(
+      Math.cos(angle) * radius,
+      offsetY,
+      Math.sin(angle) * radius
+    );
+    petal.rotation.set(tilt + randomTilt, angle + twist, randomTwist);
+    group.add(petal);
+  }
+
+  head.add(group);
+}
+
+const flowerTypes = [
+  {
+    name: 'Aurora Daisy',
+    palette: makePalette(['#ffaad9', '#ffe4f7', '#ffcd9b', '#c5f1ff']),
+    heightRange: [1.45, 2.6],
+    minHeightRange: [0.38, 0.62],
+    baseHeadTilt: () => THREE.MathUtils.degToRad(THREE.MathUtils.randFloatSpread(6)),
+    baseHeadRoll: () => THREE.MathUtils.degToRad(THREE.MathUtils.randFloatSpread(4)),
+    buildPetals(head, baseColor, headScale) {
+      const primaryMaterial = createPetalMaterial(baseColor, {
+        emissiveMultiplier: 0.32,
+        opacity: 0.92
+      });
+      buildRingPetals(head, primaryMaterial, {
+        count: 16,
+        length: 0.9 * headScale,
+        width: 0.3 * headScale,
+        radius: 0.12 * headScale,
+        tilt: THREE.MathUtils.degToRad(52),
+        offsetY: 0.08 * headScale,
+        randomness: 0.12
+      });
+
+      const accentMaterial = createPetalMaterial(
+        baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.35),
+        { emissiveMultiplier: 0.25, opacity: 0.85 }
+      );
+      buildRingPetals(head, accentMaterial, {
+        count: 10,
+        length: 0.55 * headScale,
+        width: 0.22 * headScale,
+        radius: 0.06 * headScale,
+        tilt: THREE.MathUtils.degToRad(34),
+        offsetY: 0.12 * headScale,
+        randomness: 0.08
+      });
+    },
+    addDetails(head, baseColor, headScale) {
+      const haloGeometry = new THREE.TorusGeometry(0.28 * headScale, 0.01 * headScale, 8, 32);
+      const haloMaterial = new THREE.MeshBasicMaterial({
+        color: baseColor.clone().lerp(new THREE.Color('#fdf2ff'), 0.6),
+        transparent: true,
+        opacity: 0.35
+      });
+      const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+      halo.rotation.x = Math.PI / 2;
+      halo.position.y = 0.02 * headScale;
+      head.add(halo);
+    }
+  },
+  {
+    name: 'Twilight Lily',
+    palette: makePalette(['#d0adff', '#b6e0ff', '#f5a6ff', '#c4ffe9']),
+    headScale: 1.15,
+    heightRange: [1.2, 2.1],
+    minHeightRange: [0.32, 0.55],
+    baseHeadTilt: () => THREE.MathUtils.degToRad(-6 + Math.random() * 4),
+    stemMaterial: new THREE.MeshLambertMaterial({
+      color: '#377965',
+      emissive: '#1d4035',
+      flatShading: true
+    }),
+    buildPetals(head, baseColor, headScale = 1) {
+      const material = createPetalMaterial(baseColor, {
+        emissiveMultiplier: 0.38,
+        opacity: 0.95
+      });
+      buildRingPetals(head, material, {
+        count: 6,
+        length: 1.1 * headScale,
+        width: 0.34 * headScale,
+        radius: 0.08 * headScale,
+        tilt: THREE.MathUtils.degToRad(68),
+        offsetY: 0.04 * headScale,
+        randomness: 0.09
+      });
+
+      const innerMaterial = createPetalMaterial(
+        baseColor.clone().lerp(new THREE.Color('#f7f5ff'), 0.45),
+        { emissiveMultiplier: 0.28, opacity: 0.9 }
+      );
+      buildRingPetals(head, innerMaterial, {
+        count: 8,
+        length: 0.6 * headScale,
+        width: 0.18 * headScale,
+        radius: 0.03 * headScale,
+        tilt: THREE.MathUtils.degToRad(32),
+        offsetY: 0.2 * headScale,
+        randomness: 0.05
+      });
+    },
+    addDetails(head, baseColor, headScale = 1) {
+      const sparkGeometry = new THREE.SphereGeometry(0.05 * headScale, 8, 6);
+      const sparkMaterial = new THREE.MeshBasicMaterial({
+        color: baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.55)
+      });
+      for (let i = 0; i < 6; i++) {
+        const spark = new THREE.Mesh(sparkGeometry, sparkMaterial);
+        const angle = (i / 6) * Math.PI * 2;
+        const radius = 0.14 * headScale;
+        spark.position.set(Math.cos(angle) * radius, 0.3 * headScale, Math.sin(angle) * radius);
+        head.add(spark);
+      }
+    }
+  },
+  {
+    name: 'Nebula Bloom',
+    palette: makePalette(['#ffc1f9', '#a6f0ff', '#ffe4b8', '#d9b8ff']),
+    headScale: 0.95,
+    heightRange: [1.6, 2.8],
+    minHeightRange: [0.42, 0.65],
+    baseHeadTilt: () => THREE.MathUtils.degToRad(Math.random() * 4 - 2),
+    baseHeadRoll: () => THREE.MathUtils.degToRad(Math.random() * 6 - 3),
+    buildPetals(head, baseColor, headScale = 1) {
+      const outerMaterial = createPetalMaterial(baseColor, {
+        emissiveMultiplier: 0.3,
+        opacity: 0.88
+      });
+      buildRingPetals(head, outerMaterial, {
+        count: 20,
+        length: 0.7 * headScale,
+        width: 0.24 * headScale,
+        radius: 0.18 * headScale,
+        tilt: THREE.MathUtils.degToRad(40),
+        offsetY: 0.1 * headScale,
+        randomness: 0.14
+      });
+
+      const shimmerMaterial = createPetalMaterial(
+        baseColor.clone().lerp(new THREE.Color('#fff9ff'), 0.55),
+        { emissiveMultiplier: 0.22, opacity: 0.75 }
+      );
+      buildRingPetals(head, shimmerMaterial, {
+        count: 32,
+        length: 0.42 * headScale,
+        width: 0.12 * headScale,
+        radius: 0.2 * headScale,
+        tilt: THREE.MathUtils.degToRad(24),
+        offsetY: 0.18 * headScale,
+        randomness: 0.18
+      });
+    },
+    addDetails(head, baseColor, headScale = 1) {
+      const starGeometry = new THREE.OctahedronGeometry(0.06 * headScale, 0);
+      const starMaterial = new THREE.MeshBasicMaterial({
+        color: baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.7)
+      });
+      const star = new THREE.Mesh(starGeometry, starMaterial);
+      star.position.y = 0.42 * headScale;
+      head.add(star);
+    }
+  }
+];
+
+let previousType = null;
+
+function pickFlowerType() {
+  const candidates = previousType
+    ? flowerTypes.filter((candidate) => candidate !== previousType)
+    : flowerTypes;
+  const type = candidates[Math.floor(Math.random() * candidates.length)];
+  previousType = type;
+  return type;
 }
 
 function createCoreMaterial(index) {
@@ -94,6 +295,7 @@ function createCoreMaterial(index) {
 }
 
 function createFlower(index) {
+  const type = pickFlowerType();
   const root = new THREE.Group();
 
   const head = new THREE.Group();
@@ -165,8 +367,6 @@ function createFlower(index) {
   return root;
 }
 
-let previousType = null;
-
 for (let i = 0; i < flowerCount; i++) {
   const flower = createFlower(i);
   const radius = 0.6 + Math.random() * 4.2;
@@ -180,7 +380,7 @@ for (let i = 0; i < flowerCount; i++) {
   flower.base = flower.position.clone();
   flower.rotation.y = Math.random() * Math.PI * 2;
   flower.baseRotation = flower.rotation.y;
-  flower.userData.typeName = type.name;
+  flower.userData.typeName = flower.flowerType;
   flowers.push(flower);
   scene.add(flower);
 }
