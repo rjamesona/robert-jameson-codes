@@ -33,21 +33,25 @@ scene.add(rimLight);
 const flowers = [];
 const flowerCount = 48;
 
-const palette = [
-  new THREE.Color('#74f6c7'),
-  new THREE.Color('#a88fff'),
-  new THREE.Color('#ffc1f2'),
-  new THREE.Color('#7fe7ff'),
-  new THREE.Color('#ffd57b')
-];
+function makePalette(colors) {
+  return colors.map((hex) => new THREE.Color(hex));
+}
 
-const coreMaterial = new THREE.MeshLambertMaterial({
+function randomIntInRange([min, max]) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomFloatInRange([min, max]) {
+  return min + Math.random() * (max - min);
+}
+
+const defaultCoreMaterial = new THREE.MeshLambertMaterial({
   color: '#ffe59f',
   emissive: '#f3c56b',
   flatShading: true
 });
 
-const stemMaterial = new THREE.MeshLambertMaterial({
+const defaultStemMaterial = new THREE.MeshLambertMaterial({
   color: '#3c9d7a',
   emissive: '#1d5f49',
   flatShading: true
@@ -60,52 +64,298 @@ function easeInOut(t) {
   return t * t * (3 - 2 * t);
 }
 
-function createPetalMaterial(baseColor) {
-  const color = baseColor.clone().lerp(new THREE.Color('#f5f7ff'), 0.25);
+function createPetalMaterial(baseColor, options = {}) {
+  const highlightColor = options.highlightColor
+    ? new THREE.Color(options.highlightColor)
+    : new THREE.Color('#f5f7ff');
+  const color = baseColor.clone().lerp(highlightColor, options.highlightLerp ?? 0.25);
   return new THREE.MeshLambertMaterial({
     color,
-    emissive: baseColor.clone().multiplyScalar(0.2),
+    emissive: baseColor.clone().multiplyScalar(options.emissiveMultiplier ?? 0.2),
     flatShading: true,
     transparent: true,
-    opacity: 0.9,
+    opacity: options.opacity ?? 0.9,
     side: THREE.DoubleSide
   });
 }
 
-function createFlower() {
+function createDefaultCore(headScale) {
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28 * headScale, 0), defaultCoreMaterial);
+  core.position.y = 0.05 * headScale;
+  return core;
+}
+
+const flowerTypes = [
+  {
+    name: 'daisy',
+    palette: makePalette(['#fff9f0', '#fff5d9', '#ffe7f3', '#f8fff5']),
+    headScale: 0.9,
+    petalCountRange: [18, 26],
+    materialOptions: { highlightLerp: 0.5, emissiveMultiplier: 0.12, opacity: 0.88 },
+    heightRange: [1, 2.4],
+    minHeightRange: [0.32, 0.55],
+    buildPetals(head, baseColor, headScale) {
+      const petalCount = randomIntInRange(this.petalCountRange);
+      const petalMaterial = createPetalMaterial(baseColor, this.materialOptions);
+      const petalGeometry = new THREE.CircleGeometry(0.45 * headScale, 10);
+      petalGeometry.scale(0.38, 1.25, 1);
+      petalGeometry.translate(0, 0, 0.01);
+
+      for (let i = 0; i < petalCount; i++) {
+        const petal = new THREE.Mesh(petalGeometry, petalMaterial);
+        const angle = (i / petalCount) * Math.PI * 2;
+        const radius = 0.52 * headScale;
+        petal.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+        petal.lookAt(0, 0.4 * headScale, 0);
+        petal.rotateX(THREE.MathUtils.degToRad(12));
+        head.add(petal);
+      }
+    },
+    createCore(headScale) {
+      const core = new THREE.Mesh(new THREE.SphereGeometry(0.26 * headScale, 8, 6), defaultCoreMaterial);
+      core.position.y = 0.06 * headScale;
+      return core;
+    },
+    swayMultiplier: 1.1,
+    bobMultiplier: 1.05,
+    baseHeadRoll: () => THREE.MathUtils.degToRad((Math.random() - 0.5) * 4)
+  },
+  {
+    name: 'tulip',
+    palette: makePalette(['#ff8b94', '#ff9a76', '#ffb677', '#ff6f9c']),
+    headScale: 1,
+    petalCountRange: [5, 6],
+    materialOptions: { highlightColor: '#ffe5f6', highlightLerp: 0.3, opacity: 1, emissiveMultiplier: 0.14 },
+    heightRange: [1.6, 3.2],
+    minHeightRange: [0.52, 0.82],
+    stemMaterial: new THREE.MeshLambertMaterial({
+      color: '#3fbf7b',
+      emissive: '#23774b',
+      flatShading: true
+    }),
+    buildPetals(head, baseColor, headScale) {
+      const petalCount = randomIntInRange(this.petalCountRange);
+      const petalMaterial = createPetalMaterial(baseColor, this.materialOptions);
+      const petalGeometry = new THREE.PlaneGeometry(0.42 * headScale, 1.1 * headScale, 1, 1);
+      petalGeometry.translate(0, 0.55 * headScale, 0);
+
+      for (let i = 0; i < petalCount; i++) {
+        const petal = new THREE.Mesh(petalGeometry, petalMaterial);
+        const angle = (i / petalCount) * Math.PI * 2;
+        const radius = 0.22 * headScale;
+        petal.position.set(Math.cos(angle) * radius, -0.08 * headScale, Math.sin(angle) * radius);
+        petal.rotation.y = angle + Math.PI;
+        petal.rotation.x = THREE.MathUtils.degToRad(-22);
+        petal.scale.setScalar(1 + Math.random() * 0.1);
+        head.add(petal);
+      }
+    },
+    createCore(headScale) {
+      const coreMaterial = new THREE.MeshLambertMaterial({
+        color: '#ffdca8',
+        emissive: '#ba7932',
+        flatShading: true
+      });
+      const core = new THREE.Mesh(new THREE.ConeGeometry(0.18 * headScale, 0.28 * headScale, 6), coreMaterial);
+      core.rotation.x = Math.PI;
+      core.position.y = 0.35 * headScale;
+      return core;
+    },
+    swayMultiplier: 0.8,
+    bobMultiplier: 0.7,
+    pointerInfluence: 0.7,
+    spinMultiplier: 0.6,
+    baseHeadTilt: THREE.MathUtils.degToRad(-6),
+    baseHeadRoll: () => THREE.MathUtils.degToRad((Math.random() - 0.5) * 3)
+  },
+  {
+    name: 'lotus',
+    palette: makePalette(['#f2b9de', '#f8d1ff', '#fce6b1', '#f7a8c3']),
+    headScale: 1.15,
+    materialOptions: { highlightColor: '#ffffff', highlightLerp: 0.35, opacity: 0.95, emissiveMultiplier: 0.18 },
+    buildPetals(head, baseColor, headScale) {
+      const outerMaterial = createPetalMaterial(baseColor, this.materialOptions);
+      const outerGeometry = new THREE.CircleGeometry(0.48 * headScale, 8);
+      outerGeometry.scale(0.65, 1.2, 1);
+      outerGeometry.translate(0, 0, 0.01);
+      const outerCount = randomIntInRange([10, 14]);
+
+      for (let i = 0; i < outerCount; i++) {
+        const petal = new THREE.Mesh(outerGeometry, outerMaterial);
+        const angle = (i / outerCount) * Math.PI * 2;
+        const radius = 0.4 * headScale;
+        petal.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+        petal.lookAt(0, 0.6 * headScale, 0);
+        petal.rotateX(THREE.MathUtils.degToRad(25));
+        head.add(petal);
+      }
+
+      const innerColor = baseColor.clone().lerp(new THREE.Color('#ffe0ff'), 0.3);
+      const innerMaterial = createPetalMaterial(innerColor, {
+        highlightColor: '#ffffff',
+        highlightLerp: 0.5,
+        opacity: 0.92,
+        emissiveMultiplier: 0.15
+      });
+      const innerGeometry = new THREE.CircleGeometry(0.35 * headScale, 6);
+      innerGeometry.scale(0.55, 1.15, 1);
+      innerGeometry.translate(0, 0, 0.01);
+      const innerCount = randomIntInRange([6, 8]);
+
+      for (let i = 0; i < innerCount; i++) {
+        const petal = new THREE.Mesh(innerGeometry, innerMaterial);
+        const angle = (i / innerCount) * Math.PI * 2 + Math.PI / innerCount;
+        const radius = 0.23 * headScale;
+        petal.position.set(Math.cos(angle) * radius, 0.03 * headScale, Math.sin(angle) * radius);
+        petal.lookAt(0, 0.8 * headScale, 0);
+        petal.rotateX(THREE.MathUtils.degToRad(38));
+        head.add(petal);
+      }
+    },
+    createCore(headScale) {
+      const coreMaterial = new THREE.MeshLambertMaterial({
+        color: '#ffdcb2',
+        emissive: '#c7904e',
+        flatShading: true
+      });
+      const core = new THREE.Mesh(new THREE.SphereGeometry(0.22 * headScale, 8, 6), coreMaterial);
+      core.position.y = 0.09 * headScale;
+      return core;
+    },
+    swayMultiplier: 1.05,
+    bobMultiplier: 1.2,
+    pointerInfluence: 1.1,
+    heightRange: [1.1, 2.2],
+    minHeightRange: [0.4, 0.7],
+    baseHeadRoll: () => THREE.MathUtils.degToRad((Math.random() - 0.5) * 5)
+  },
+  {
+    name: 'bluebell',
+    palette: makePalette(['#b4b7ff', '#a0c0ff', '#d1b4ff', '#9bb6ff']),
+    headScale: 0.85,
+    materialOptions: { highlightColor: '#f2f7ff', highlightLerp: 0.22, opacity: 0.82, emissiveMultiplier: 0.2 },
+    heightRange: [0.9, 1.8],
+    minHeightRange: [0.28, 0.48],
+    stemMaterial: new THREE.MeshLambertMaterial({
+      color: '#4e9ab1',
+      emissive: '#27616f',
+      flatShading: true
+    }),
+    buildPetals(head, baseColor, headScale) {
+      const bloomMaterial = createPetalMaterial(baseColor, this.materialOptions);
+      const bloomGeometry = new THREE.ConeGeometry(0.38 * headScale, 0.85 * headScale, 6, 1, true);
+      bloomGeometry.rotateX(Math.PI);
+      bloomGeometry.translate(0, 0.45 * headScale, 0);
+      const bloom = new THREE.Mesh(bloomGeometry, bloomMaterial);
+      bloom.rotation.y = Math.random() * Math.PI * 2;
+      head.add(bloom);
+
+      const frillMaterial = createPetalMaterial(baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.4), {
+        highlightColor: '#ffffff',
+        highlightLerp: 0.4,
+        opacity: 0.75,
+        emissiveMultiplier: 0.18
+      });
+      const frillGeometry = new THREE.CircleGeometry(0.3 * headScale, 12);
+      frillGeometry.scale(1.2, 0.8, 1);
+      const frill = new THREE.Mesh(frillGeometry, frillMaterial);
+      frill.position.y = 0.02 * headScale;
+      head.add(frill);
+    },
+    createCore(headScale) {
+      const coreMaterial = new THREE.MeshLambertMaterial({
+        color: '#ffe9f4',
+        emissive: '#d17aa6',
+        flatShading: true
+      });
+      const core = new THREE.Mesh(new THREE.SphereGeometry(0.14 * headScale, 6, 4), coreMaterial);
+      core.position.y = -0.02 * headScale;
+      return core;
+    },
+    swayMultiplier: 1.3,
+    bobMultiplier: 1.4,
+    pointerInfluence: 0.9,
+    baseHeadTilt: THREE.MathUtils.degToRad(24),
+    baseHeadRoll: () => THREE.MathUtils.degToRad((Math.random() - 0.5) * 8)
+  },
+  {
+    name: 'sunburst',
+    palette: makePalette(['#ffd57b', '#ffe680', '#ffc55c', '#ffe1a0']),
+    headScale: 1,
+    petalCountRange: [22, 30],
+    materialOptions: { highlightColor: '#fff4d9', highlightLerp: 0.35, opacity: 0.9, emissiveMultiplier: 0.16 },
+    heightRange: [1.4, 2.6],
+    minHeightRange: [0.38, 0.6],
+    stemMaterial: new THREE.MeshLambertMaterial({
+      color: '#4c8f3b',
+      emissive: '#25481c',
+      flatShading: true
+    }),
+    buildPetals(head, baseColor, headScale) {
+      const petalMaterial = createPetalMaterial(baseColor, this.materialOptions);
+      const petalGeometry = new THREE.CircleGeometry(0.5 * headScale, 8);
+      petalGeometry.scale(0.22, 1.4, 1);
+      petalGeometry.translate(0, 0, 0.01);
+      const petalCount = randomIntInRange(this.petalCountRange);
+
+      for (let i = 0; i < petalCount; i++) {
+        const petal = new THREE.Mesh(petalGeometry, petalMaterial);
+        const angle = (i / petalCount) * Math.PI * 2;
+        const radius = 0.46 * headScale;
+        petal.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+        petal.lookAt(0, 0.25 * headScale, 0);
+        petal.rotateX(THREE.MathUtils.degToRad(8));
+        head.add(petal);
+      }
+    },
+    createCore(headScale) {
+      const coreMaterial = new THREE.MeshLambertMaterial({
+        color: '#5c3d13',
+        emissive: '#2b1707',
+        flatShading: true
+      });
+      const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32 * headScale, 0), coreMaterial);
+      core.position.y = 0.02 * headScale;
+      return core;
+    },
+    swayMultiplier: 0.95,
+    bobMultiplier: 0.9,
+    pointerInfluence: 1.25,
+    spinMultiplier: 1.5,
+    baseHeadRoll: () => THREE.MathUtils.degToRad((Math.random() - 0.5) * 2)
+  }
+];
+
+function createFlower(type) {
   const root = new THREE.Group();
 
   const head = new THREE.Group();
+  const headScale = type.headScale ?? 1;
+  const baseColor = type.palette[Math.floor(Math.random() * type.palette.length)].clone();
 
-  const petalCount = 6 + Math.floor(Math.random() * 4);
-  const baseColor = palette[Math.floor(Math.random() * palette.length)];
-  const petalMaterial = createPetalMaterial(baseColor);
-
-  const headScale = 0.5;
-  const petalGeometry = new THREE.CircleGeometry(0.45 * headScale, 6);
-  petalGeometry.scale(0.65, 1, 1);
-  petalGeometry.translate(0, 0, 0.01);
-
-  for (let i = 0; i < petalCount; i++) {
-    const petal = new THREE.Mesh(petalGeometry, petalMaterial);
-    const angle = (i / petalCount) * Math.PI * 2;
-    const radius = 0.5 * headScale;
-    petal.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
-    petal.lookAt(0, 0.4, 0);
-    petal.rotateX(THREE.MathUtils.degToRad(12));
-    head.add(petal);
+  if (typeof type.buildPetals === 'function') {
+    type.buildPetals(head, baseColor, headScale);
   }
 
-  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 0), coreMaterial);
-  core.position.y = 0.05;
+  const coreFactory = typeof type.createCore === 'function' ? type.createCore : createDefaultCore;
+  const core = coreFactory(headScale, baseColor);
   head.add(core);
 
+  if (typeof type.addDetails === 'function') {
+    type.addDetails(head, baseColor, headScale);
+  }
+
+  const stemMaterial = type.stemMaterial ?? defaultStemMaterial;
   const stem = new THREE.Mesh(sharedStemGeometry, stemMaterial);
   root.add(stem);
   root.add(head);
 
-  const fullHeight = 1.3 + Math.random() * 1.5;
-  const minHeight = 0.35 + Math.random() * 0.25;
+  const fullHeight = type.heightRange
+    ? randomFloatInRange(type.heightRange)
+    : 1.3 + Math.random() * 1.5;
+  const minHeight = type.minHeightRange
+    ? randomFloatInRange(type.minHeightRange)
+    : 0.35 + Math.random() * 0.25;
 
   head.position.y = minHeight;
 
@@ -117,19 +367,32 @@ function createFlower() {
   root.headTarget = root.headBase.clone();
   root.headCurrent = root.headBase.clone();
 
-  root.pointerInfluence = 0.9 + Math.random() * 1.1;
-  root.swayAmount = 0.3 + Math.random() * 0.35;
-  root.bobAmount = 0.18 + Math.random() * 0.22;
-  root.swingSpeed = 0.6 + Math.random() * 0.5;
-  root.bobSpeed = 0.9 + Math.random() * 0.6;
-  root.baseDriftSpeed = 0.18 + Math.random() * 0.12;
-  root.headSpin = 0.001 + Math.random() * 0.0025;
+  const pointerBase = 0.9 + Math.random() * 1.1;
+  root.pointerInfluence = pointerBase * (type.pointerInfluence ?? 1);
+
+  const swayBase = 0.3 + Math.random() * 0.35;
+  root.swayAmount = swayBase * (type.swayMultiplier ?? 1);
+
+  const bobBase = 0.18 + Math.random() * 0.22;
+  root.bobAmount = bobBase * (type.bobMultiplier ?? 1);
+
+  root.swingSpeed = (0.6 + Math.random() * 0.5) * (type.swingMultiplier ?? 1);
+  root.bobSpeed = (0.9 + Math.random() * 0.6) * (type.bobSpeedMultiplier ?? 1);
+  root.baseDriftSpeed = (0.18 + Math.random() * 0.12) * (type.driftMultiplier ?? 1);
+  root.headSpin = (0.001 + Math.random() * 0.0025) * (type.spinMultiplier ?? 1) * (type.spinDirection ?? 1);
   root.followDelay = Math.random() * 2.6;
-  root.rampDuration = 1.2 + Math.random() * 1.4;
-  root.followLerp = 0.04 + Math.random() * 0.05;
+  root.rampDuration = (1.2 + Math.random() * 1.4) * (type.rampMultiplier ?? 1);
+  root.followLerp = (0.04 + Math.random() * 0.05) * (type.followLerpMultiplier ?? 1);
   root.swingPhase = Math.random() * Math.PI * 2;
   root.basePhase = Math.random() * Math.PI * 2;
   root.followProgress = 0;
+  const baseTiltSource = type.baseHeadTilt;
+  const baseRollSource = type.baseHeadRoll;
+  head.userData.baseTiltX =
+    typeof baseTiltSource === 'function' ? baseTiltSource() : baseTiltSource ?? 0;
+  head.userData.baseTiltZ =
+    typeof baseRollSource === 'function' ? baseRollSource() : baseRollSource ?? 0;
+  root.flowerType = type.name;
 
   const initialThickness = THREE.MathUtils.lerp(0.85, 1.05, root.followProgress);
   stem.scale.set(initialThickness, root.headCurrent.length(), initialThickness);
@@ -137,8 +400,20 @@ function createFlower() {
   return root;
 }
 
+let previousType = null;
+
 for (let i = 0; i < flowerCount; i++) {
-  const flower = createFlower();
+  let type = flowerTypes[Math.floor(Math.random() * flowerTypes.length)];
+  if (previousType && flowerTypes.length > 1) {
+    let guard = 0;
+    while (type === previousType && guard < 10) {
+      type = flowerTypes[Math.floor(Math.random() * flowerTypes.length)];
+      guard++;
+    }
+  }
+  previousType = type;
+
+  const flower = createFlower(type);
   const radius = 0.6 + Math.random() * 4.2;
   const angle = Math.random() * Math.PI * 2;
   const height = (Math.random() * 2 - 1) * 1.8;
@@ -150,6 +425,7 @@ for (let i = 0; i < flowerCount; i++) {
   flower.base = flower.position.clone();
   flower.rotation.y = Math.random() * Math.PI * 2;
   flower.baseRotation = flower.rotation.y;
+  flower.userData.typeName = type.name;
   flowers.push(flower);
   scene.add(flower);
 }
@@ -286,7 +562,12 @@ function animate() {
     flower.head.position.copy(flower.headCurrent);
 
     flower.head.rotation.y += flower.headSpin;
-    flower.head.rotation.x = Math.sin(elapsed * 0.18 + flower.basePhase) * THREE.MathUtils.degToRad(6);
+    const baseTiltX = flower.head.userData.baseTiltX ?? 0;
+    const baseTiltZ = flower.head.userData.baseTiltZ ?? 0;
+    flower.head.rotation.x =
+      baseTiltX + Math.sin(elapsed * 0.18 + flower.basePhase) * THREE.MathUtils.degToRad(6);
+    flower.head.rotation.z =
+      baseTiltZ + Math.cos(elapsed * 0.21 + flower.swingPhase) * THREE.MathUtils.degToRad(3.2);
 
     updateStem(flower);
 
