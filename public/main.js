@@ -792,7 +792,7 @@ function animate() {
     );
 
     flower.headTargetQuat.setFromEuler(flower.headTargetEuler);
-    const rotationLerp = THREE.MathUtils.lerp(0.015, 0.05, reactionProgress);
+    const rotationLerp = THREE.MathUtils.lerp(0.009, 0.032, reactionProgress);
     flower.headCurrentQuat.slerp(flower.headTargetQuat, rotationLerp);
     flower.head.quaternion.copy(flower.headCurrentQuat);
 
