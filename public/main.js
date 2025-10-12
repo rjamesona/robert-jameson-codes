@@ -135,13 +135,13 @@ function createFlower(index) {
   root.headTarget = root.headBase.clone();
   root.headCurrent = root.headBase.clone();
 
-  root.pointerInfluence = 0.9 + Math.random() * 1.1;
-  root.swayAmount = 0.3 + Math.random() * 0.35;
-  root.bobAmount = 0.18 + Math.random() * 0.22;
-  root.swingSpeed = 0.6 + Math.random() * 0.5;
-  root.bobSpeed = 0.9 + Math.random() * 0.6;
-  root.baseDriftSpeed = 0.18 + Math.random() * 0.12;
-  root.headSpin = 0.001 + Math.random() * 0.0025;
+  root.pointerInfluence = 0.45 + Math.random() * 0.6;
+  root.swayAmount = 0.12 + Math.random() * 0.1;
+  root.bobAmount = 0.05 + Math.random() * 0.06;
+  root.swingSpeed = 0.08 + Math.random() * 0.05;
+  root.bobSpeed = 0.12 + Math.random() * 0.07;
+  root.baseDriftSpeed = 0.025 + Math.random() * 0.015;
+  root.headSpin = 0.0001 + Math.random() * 0.00025;
   root.followDelay = 1.5 + Math.random() * 3.5;
   root.rampDuration = 6 + Math.random() * 6;
   root.reactionDelay = 0.6 + Math.random() * 2.4;
@@ -310,12 +310,16 @@ function animate() {
     const growthHeight = THREE.MathUtils.lerp(flower.minHeight, flower.fullHeight, eased);
     flower.headBase.y = growthHeight;
 
-    const sway = Math.sin(elapsed * flower.swingSpeed + flower.swingPhase) * flower.swayAmount;
+    const windPrimary = Math.sin(elapsed * flower.swingSpeed + flower.swingPhase);
+    const windSecondary = Math.sin(elapsed * 0.06 + flower.basePhase * 0.4);
+    const sway = (windPrimary * 0.7 + windSecondary * 0.3) * flower.swayAmount;
     const swayZ =
-      Math.cos(elapsed * (flower.swingSpeed * 0.75) + flower.basePhase) * flower.swayAmount * 0.7;
+      (Math.cos(elapsed * (flower.swingSpeed * 0.6) + flower.basePhase) * 0.6 +
+        Math.sin(elapsed * 0.04 + flower.swingPhase * 0.5) * 0.4) *
+      flower.swayAmount * 0.85;
     const bob = Math.sin(elapsed * flower.bobSpeed + flower.swingPhase) * flower.bobAmount;
 
-    pointerOffset.set(pointer.x * 1.4, pointer.y * 1.1, pointer.x * 1.2);
+    pointerOffset.set(pointer.x * 0.45, pointer.y * 0.35, pointer.x * 0.4);
     pointerOffset.multiplyScalar(flower.pointerInfluence * reactionProgress);
 
     flower.headTarget.set(
@@ -333,29 +337,30 @@ function animate() {
     flower.head.position.copy(flower.headCurrent);
 
     flower.head.rotation.y += flower.headSpin * delta * 60;
-    flower.head.rotation.x = Math.sin(elapsed * 0.18 + flower.basePhase) * THREE.MathUtils.degToRad(6);
+    flower.head.rotation.x =
+      Math.sin(elapsed * 0.08 + flower.basePhase * 0.6) * THREE.MathUtils.degToRad(2.5);
 
     updateStem(flower);
 
     const baseTargetX =
-      flower.base.x + Math.sin(elapsed * flower.baseDriftSpeed + flower.basePhase) * 0.18;
+      flower.base.x + Math.sin(elapsed * flower.baseDriftSpeed + flower.basePhase) * 0.06;
     const baseTargetZ =
-      flower.base.z + Math.cos(elapsed * (flower.baseDriftSpeed * 0.85) + flower.basePhase) * 0.18;
+      flower.base.z + Math.cos(elapsed * (flower.baseDriftSpeed * 0.8) + flower.basePhase) * 0.06;
     const baseTargetY =
-      flower.base.y + Math.sin(elapsed * 0.45 + flower.basePhase) * 0.14;
+      flower.base.y + Math.sin(elapsed * 0.12 + flower.basePhase * 0.5) * 0.04;
 
-    flower.position.x = THREE.MathUtils.lerp(flower.position.x, baseTargetX, 0.035);
-    flower.position.y = THREE.MathUtils.lerp(flower.position.y, baseTargetY, 0.045);
-    flower.position.z = THREE.MathUtils.lerp(flower.position.z, baseTargetZ, 0.035);
+    flower.position.x = THREE.MathUtils.lerp(flower.position.x, baseTargetX, 0.02);
+    flower.position.y = THREE.MathUtils.lerp(flower.position.y, baseTargetY, 0.025);
+    flower.position.z = THREE.MathUtils.lerp(flower.position.z, baseTargetZ, 0.02);
 
     const rotationTargetY =
-      flower.baseRotation + pointer.x * 0.3 * reactionProgress + sway * 0.1;
-    flower.rotation.y = THREE.MathUtils.lerp(flower.rotation.y, rotationTargetY, 0.04);
+      flower.baseRotation + pointer.x * 0.12 * reactionProgress + sway * 0.12;
+    flower.rotation.y = THREE.MathUtils.lerp(flower.rotation.y, rotationTargetY, 0.025);
 
     const rotationTargetX =
-      pointer.y * 0.12 * reactionProgress +
-      Math.sin(elapsed * 0.25 + flower.swingPhase) * 0.08;
-    flower.rotation.x = THREE.MathUtils.lerp(flower.rotation.x, rotationTargetX, 0.05);
+      pointer.y * 0.06 * reactionProgress +
+      Math.sin(elapsed * 0.12 + flower.swingPhase) * 0.04;
+    flower.rotation.x = THREE.MathUtils.lerp(flower.rotation.x, rotationTargetX, 0.03);
   });
 
   fireflyMaterial.uniforms.uTime.value = elapsed;
