@@ -133,7 +133,6 @@ function createFlower() {
 
   const initialThickness = THREE.MathUtils.lerp(0.85, 1.05, root.followProgress);
   stem.scale.set(initialThickness, root.headCurrent.length(), initialThickness);
-  stem.position.set(0, root.headCurrent.y * 0.5, 0);
 
   return root;
 }
@@ -177,7 +176,7 @@ function updateStem(flower) {
   }
 
   stem.scale.set(thickness, length, thickness);
-  stem.position.copy(headPosition).multiplyScalar(0.5);
+  stem.position.set(0, 0, 0);
 }
 
 // Fireflies
