@@ -62,9 +62,14 @@ function randomFloatInRange([min, max]) {
 
 const pastelGoldenRatio = 0.61803398875;
 
-function toFiniteNumber(value, fallback) {
+function toFiniteNumber(value, fallback = 0) {
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : fallback;
+  if (Number.isFinite(numeric)) {
+    return numeric;
+  }
+
+  const fallbackNumeric = Number(fallback);
+  return Number.isFinite(fallbackNumeric) ? fallbackNumeric : 0;
 }
 
 function getPastelColor(index) {
@@ -123,9 +128,16 @@ function createCurvedPetalGeometry({
   tipCurl = 0.35,
   arch = 0.18
 }) {
-  const safeSegments = Math.max(Math.floor(toFiniteNumber(segments, 8)), 1);
-  const safeLength = Math.max(Math.abs(toFiniteNumber(length, 1)), 0.001);
-  const safeWidth = Math.max(Math.abs(toFiniteNumber(width, 1)), 0.001);
+  const segmentCount = Math.floor(toFiniteNumber(segments, 8));
+  const safeSegments = Math.max(Number.isFinite(segmentCount) ? segmentCount : 8, 1);
+
+  const rawLength = Math.abs(toFiniteNumber(length, 1));
+  const safeLength = Math.max(Number.isFinite(rawLength) ? rawLength : 1, 0.001);
+  const halfLength = safeLength / 2;
+
+  const rawWidth = Math.abs(toFiniteNumber(width, 1));
+  const safeWidth = Math.max(Number.isFinite(rawWidth) ? rawWidth : 1, 0.001);
+
   const safeTaper = toFiniteNumber(taper, 0.28);
   const safeCurl = toFiniteNumber(curl, 0.22);
   const safeTipCurl = toFiniteNumber(tipCurl, 0.35);
@@ -137,16 +149,18 @@ function createCurvedPetalGeometry({
 
   for (let i = 0; i < position.count; i++) {
     temp.fromBufferAttribute(position, i);
-    const progress = (temp.y + safeLength / 2) / safeLength;
-    const taperedX = temp.x * THREE.MathUtils.lerp(1, safeTaper, progress);
-    const forwardCurl = Math.sin(progress * Math.PI * 0.85) * safeCurl * safeLength;
-    const tipLift = Math.pow(progress, 2.1) * safeTipCurl * safeLength;
-    const verticalArch = Math.sin(progress * Math.PI) * safeArch * safeLength;
+    const localY = toFiniteNumber(temp.y + halfLength, halfLength);
+    const progress = THREE.MathUtils.clamp(toFiniteNumber(localY / safeLength, 0), 0, 1);
+    const taperedX = toFiniteNumber(temp.x * THREE.MathUtils.lerp(1, safeTaper, progress), 0);
+    const forwardCurl = toFiniteNumber(
+      Math.sin(progress * Math.PI * 0.85) * safeCurl * safeLength,
+      0
+    );
+    const tipLift = toFiniteNumber(Math.pow(progress, 2.1) * safeTipCurl * safeLength, 0);
+    const verticalArch = toFiniteNumber(Math.sin(progress * Math.PI) * safeArch * safeLength, 0);
+    const curvedZ = toFiniteNumber(forwardCurl + tipLift + verticalArch, 0);
 
-    temp.set(taperedX, temp.y + safeLength / 2, forwardCurl + tipLift);
-    temp.z += verticalArch;
-
-    position.setXYZ(i, temp.x, temp.y, temp.z);
+    position.setXYZ(i, taperedX, localY, curvedZ);
   }
 
   position.needsUpdate = true;
