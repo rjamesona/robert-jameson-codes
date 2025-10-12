@@ -113,6 +113,8 @@ function createCurvedPetalGeometry({
   }
 
   geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  geometry.computeBoundingBox();
   return geometry;
 }
 
