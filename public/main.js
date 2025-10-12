@@ -247,9 +247,12 @@ window.addEventListener('pointermove', handlePointer, { passive: true });
 window.addEventListener('touchmove', handlePointer, { passive: true });
 
 const clock = new THREE.Clock();
+let previousElapsed = 0;
 
 function animate() {
   const elapsed = clock.getElapsedTime();
+  const delta = elapsed - previousElapsed;
+  previousElapsed = elapsed;
 
   targetRotation.set(pointer.y * 0.1, pointer.x * 0.25, 0);
   scene.rotation.x = THREE.MathUtils.lerp(scene.rotation.x, targetRotation.x, 0.02);
@@ -285,7 +288,7 @@ function animate() {
     flower.headCurrent.lerp(flower.headTarget, flower.followLerp);
     flower.head.position.copy(flower.headCurrent);
 
-    flower.head.rotation.y += flower.headSpin;
+    flower.head.rotation.y += flower.headSpin * delta * 60;
     flower.head.rotation.x = Math.sin(elapsed * 0.18 + flower.basePhase) * THREE.MathUtils.degToRad(6);
 
     updateStem(flower);
