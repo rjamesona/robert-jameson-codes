@@ -12,6 +12,15 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.domElement.classList.add('webgl');
 document.body.appendChild(renderer.domElement);
 
+const overlay = document.querySelector('.overlay');
+if (overlay) {
+  const hideOverlay = () => {
+    overlay.classList.add('overlay--hidden');
+  };
+
+  window.addEventListener('pointermove', hideOverlay, { once: true });
+}
+
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x091225, 0.055);
 
