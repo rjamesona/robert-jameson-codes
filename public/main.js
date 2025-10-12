@@ -33,13 +33,17 @@ scene.add(rimLight);
 const flowers = [];
 const flowerCount = 48;
 
-const palette = [
-  new THREE.Color('#74f6c7'),
-  new THREE.Color('#a88fff'),
-  new THREE.Color('#ffc1f2'),
-  new THREE.Color('#7fe7ff'),
-  new THREE.Color('#ffd57b')
-];
+function makePalette(colors) {
+  return colors.map((hex) => new THREE.Color(hex));
+}
+
+function randomIntInRange([min, max]) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomFloatInRange([min, max]) {
+  return min + Math.random() * (max - min);
+}
 
 const pastelGoldenRatio = 0.61803398875;
 
@@ -50,7 +54,7 @@ function getPastelColor(index) {
   return color;
 }
 
-const stemMaterial = new THREE.MeshLambertMaterial({
+const defaultStemMaterial = new THREE.MeshLambertMaterial({
   color: '#3c9d7a',
   emissive: '#1d5f49',
   flatShading: true
@@ -72,10 +76,10 @@ function createPetalMaterial(baseColor) {
   const color = baseColor.clone().lerp(new THREE.Color('#f5f7ff'), 0.25);
   return new THREE.MeshLambertMaterial({
     color,
-    emissive: baseColor.clone().multiplyScalar(0.2),
+    emissive: baseColor.clone().multiplyScalar(options.emissiveMultiplier ?? 0.2),
     flatShading: true,
     transparent: true,
-    opacity: 0.9,
+    opacity: options.opacity ?? 0.9,
     side: THREE.DoubleSide
   });
 }
@@ -93,24 +97,11 @@ function createFlower(index) {
   const root = new THREE.Group();
 
   const head = new THREE.Group();
+  const headScale = type.headScale ?? 1;
+  const baseColor = type.palette[Math.floor(Math.random() * type.palette.length)].clone();
 
-  const petalCount = 6 + Math.floor(Math.random() * 4);
-  const baseColor = palette[Math.floor(Math.random() * palette.length)];
-  const petalMaterial = createPetalMaterial(baseColor);
-
-  const headScale = 0.5;
-  const petalGeometry = new THREE.CircleGeometry(0.45 * headScale, 6);
-  petalGeometry.scale(0.65, 1, 1);
-  petalGeometry.translate(0, 0, 0.01);
-
-  for (let i = 0; i < petalCount; i++) {
-    const petal = new THREE.Mesh(petalGeometry, petalMaterial);
-    const angle = (i / petalCount) * Math.PI * 2;
-    const radius = 0.5 * headScale;
-    petal.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
-    petal.lookAt(0, 0.4, 0);
-    petal.rotateX(THREE.MathUtils.degToRad(12));
-    head.add(petal);
+  if (typeof type.buildPetals === 'function') {
+    type.buildPetals(head, baseColor, headScale);
   }
 
   const coreMaterial = createCoreMaterial(index);
@@ -118,12 +109,21 @@ function createFlower(index) {
   core.position.y = 0.05;
   head.add(core);
 
+  if (typeof type.addDetails === 'function') {
+    type.addDetails(head, baseColor, headScale);
+  }
+
+  const stemMaterial = type.stemMaterial ?? defaultStemMaterial;
   const stem = new THREE.Mesh(sharedStemGeometry, stemMaterial);
   root.add(stem);
   root.add(head);
 
-  const fullHeight = 1.3 + Math.random() * 1.5;
-  const minHeight = 0.35 + Math.random() * 0.25;
+  const fullHeight = type.heightRange
+    ? randomFloatInRange(type.heightRange)
+    : 1.3 + Math.random() * 1.5;
+  const minHeight = type.minHeightRange
+    ? randomFloatInRange(type.minHeightRange)
+    : 0.35 + Math.random() * 0.25;
 
   head.position.y = minHeight;
 
@@ -151,12 +151,21 @@ function createFlower(index) {
   root.swingPhase = Math.random() * Math.PI * 2;
   root.basePhase = Math.random() * Math.PI * 2;
   root.followProgress = 0;
+  const baseTiltSource = type.baseHeadTilt;
+  const baseRollSource = type.baseHeadRoll;
+  head.userData.baseTiltX =
+    typeof baseTiltSource === 'function' ? baseTiltSource() : baseTiltSource ?? 0;
+  head.userData.baseTiltZ =
+    typeof baseRollSource === 'function' ? baseRollSource() : baseRollSource ?? 0;
+  root.flowerType = type.name;
 
   const initialThickness = THREE.MathUtils.lerp(0.85, 1.05, root.followProgress);
   stem.scale.set(initialThickness, root.headCurrent.length(), initialThickness);
 
   return root;
 }
+
+let previousType = null;
 
 for (let i = 0; i < flowerCount; i++) {
   const flower = createFlower(i);
@@ -171,6 +180,7 @@ for (let i = 0; i < flowerCount; i++) {
   flower.base = flower.position.clone();
   flower.rotation.y = Math.random() * Math.PI * 2;
   flower.baseRotation = flower.rotation.y;
+  flower.userData.typeName = type.name;
   flowers.push(flower);
   scene.add(flower);
 }
