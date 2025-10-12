@@ -36,3 +36,18 @@ docker run --rm -p 8080:8080 floating-bloom
 ```
 
 Visit http://localhost:8080 to explore the relaxing scene.
+
+## Publishing to Docker Hub
+
+This repository includes a GitHub Actions workflow that builds the Docker
+image and publishes it to Docker Hub. To enable automated publishing:
+
+1. Create a Docker Hub account (if you do not already have one) and generate
+   a [personal access token](https://docs.docker.com/docker-hub/access-tokens/).
+2. Add the following repository secrets in GitHub:
+   - `DOCKERHUB_USERNAME`: your Docker Hub username.
+   - `DOCKERHUB_TOKEN`: the access token created in the previous step.
+3. Push to the `main` branch or create a tag that starts with `v` (for example,
+   `v1.0.0`). The workflow builds the image and publishes it to
+   `docker.io/<username>/floating-bloom`. A manual run can also be triggered via
+   the "Run workflow" button in the GitHub Actions tab.
