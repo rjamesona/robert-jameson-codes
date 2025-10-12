@@ -60,6 +60,11 @@ function easeInOut(t) {
   return t * t * (3 - 2 * t);
 }
 
+function slowStartRamp(t) {
+  const eased = easeInOut(t);
+  return eased * eased;
+}
+
 function createPetalMaterial(baseColor) {
   const color = baseColor.clone().lerp(new THREE.Color('#f5f7ff'), 0.25);
   return new THREE.MeshLambertMaterial({
@@ -124,9 +129,12 @@ function createFlower() {
   root.bobSpeed = 0.9 + Math.random() * 0.6;
   root.baseDriftSpeed = 0.18 + Math.random() * 0.12;
   root.headSpin = 0.001 + Math.random() * 0.0025;
-  root.followDelay = Math.random() * 2.6;
-  root.rampDuration = 1.2 + Math.random() * 1.4;
-  root.followLerp = 0.04 + Math.random() * 0.05;
+  root.followDelay = 1.5 + Math.random() * 3.5;
+  root.rampDuration = 6 + Math.random() * 6;
+  root.reactionDelay = 0.6 + Math.random() * 2.4;
+  root.reactionDuration = 4 + Math.random() * 4;
+  root.minFollowLerp = 0.01 + Math.random() * 0.02;
+  root.maxFollowLerp = 0.05 + Math.random() * 0.06;
   root.swingPhase = Math.random() * Math.PI * 2;
   root.basePhase = Math.random() * Math.PI * 2;
   root.followProgress = 0;
@@ -265,8 +273,16 @@ function animate() {
   flowers.forEach((flower) => {
     const timeSinceStart = Math.max(0, elapsed - flower.followDelay);
     const ramp = THREE.MathUtils.clamp(timeSinceStart / flower.rampDuration, 0, 1);
-    const eased = easeInOut(ramp);
+    const eased = slowStartRamp(ramp);
     flower.followProgress = eased;
+
+    const reactionElapsed = Math.max(0, elapsed - flower.followDelay - flower.reactionDelay);
+    const reactionRamp = THREE.MathUtils.clamp(
+      reactionElapsed / flower.reactionDuration,
+      0,
+      1
+    );
+    const reactionProgress = slowStartRamp(reactionRamp);
 
     const growthHeight = THREE.MathUtils.lerp(flower.minHeight, flower.fullHeight, eased);
     flower.headBase.y = growthHeight;
@@ -277,15 +293,20 @@ function animate() {
     const bob = Math.sin(elapsed * flower.bobSpeed + flower.swingPhase) * flower.bobAmount;
 
     pointerOffset.set(pointer.x * 1.4, pointer.y * 1.1, pointer.x * 1.2);
-    pointerOffset.multiplyScalar(flower.pointerInfluence);
+    pointerOffset.multiplyScalar(flower.pointerInfluence * reactionProgress);
 
     flower.headTarget.set(
-      flower.headBase.x + sway + pointerOffset.x * eased,
-      flower.headBase.y + bob + pointerOffset.y * eased,
-      flower.headBase.z + swayZ + pointerOffset.z * eased
+      flower.headBase.x + sway + pointerOffset.x,
+      flower.headBase.y + bob + pointerOffset.y,
+      flower.headBase.z + swayZ + pointerOffset.z
     );
 
-    flower.headCurrent.lerp(flower.headTarget, flower.followLerp);
+    const followLerp = THREE.MathUtils.lerp(
+      flower.minFollowLerp,
+      flower.maxFollowLerp,
+      reactionProgress
+    );
+    flower.headCurrent.lerp(flower.headTarget, followLerp);
     flower.head.position.copy(flower.headCurrent);
 
     flower.head.rotation.y += flower.headSpin * delta * 60;
@@ -304,10 +325,13 @@ function animate() {
     flower.position.y = THREE.MathUtils.lerp(flower.position.y, baseTargetY, 0.045);
     flower.position.z = THREE.MathUtils.lerp(flower.position.z, baseTargetZ, 0.035);
 
-    const rotationTargetY = flower.baseRotation + pointer.x * 0.3 * eased + sway * 0.1;
+    const rotationTargetY =
+      flower.baseRotation + pointer.x * 0.3 * reactionProgress + sway * 0.1;
     flower.rotation.y = THREE.MathUtils.lerp(flower.rotation.y, rotationTargetY, 0.04);
 
-    const rotationTargetX = pointer.y * 0.12 * eased + Math.sin(elapsed * 0.25 + flower.swingPhase) * 0.08;
+    const rotationTargetX =
+      pointer.y * 0.12 * reactionProgress +
+      Math.sin(elapsed * 0.25 + flower.swingPhase) * 0.08;
     flower.rotation.x = THREE.MathUtils.lerp(flower.rotation.x, rotationTargetX, 0.05);
   });
 
