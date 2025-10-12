@@ -36,11 +36,20 @@ rimLight.position.set(-6, 5, -4);
 scene.add(rimLight);
 
 const flowers = [];
-const flowerCount = 48;
+let flowerCount = 0;
+const MIN_FLOWER_COUNT = 24;
+const MAX_FLOWER_COUNT = 72;
+const FLOWER_AREA_PER_PLANT = 20000;
 const FLOWER_HEIGHT_MULTIPLIER = 1.2;
 const FLOWER_HEAD_SCALE = 0.7;
 const STEM_THICKNESS_RANGE = { min: 0.45, max: 0.65 };
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+
+function calculateFlowerCount() {
+  const viewportArea = Math.max(window.innerWidth * window.innerHeight, 1);
+  const estimatedCount = Math.round(viewportArea / FLOWER_AREA_PER_PLANT);
+  return THREE.MathUtils.clamp(estimatedCount, MIN_FLOWER_COUNT, MAX_FLOWER_COUNT);
+}
 
 function makePalette(colors) {
   return colors.map((hex) => new THREE.Color(hex));
@@ -509,26 +518,52 @@ function createFlower(index) {
   return root;
 }
 
-for (let i = 0; i < flowerCount; i++) {
-  const flower = createFlower(i);
-  const progress = (i + 0.5) / flowerCount;
+function placeFlowerInField(flower, index, total) {
+  const safeTotal = Math.max(total, 1);
+  const progress = (index + 0.5) / safeTotal;
   const radius = THREE.MathUtils.lerp(2.4, 6.4, Math.sqrt(progress));
-  const angle = i * GOLDEN_ANGLE;
+  const angle = index * GOLDEN_ANGLE;
   const jitterX = (Math.random() - 0.5) * 0.6;
   const jitterZ = (Math.random() - 0.5) * 0.6;
   const height = THREE.MathUtils.lerp(-0.5, 0.5, Math.random());
+
   flower.position.set(
     Math.cos(angle) * radius + jitterX,
     height,
     Math.sin(angle) * radius + jitterZ
   );
+
   flower.base = flower.position.clone();
   flower.rotation.y = Math.random() * Math.PI * 2;
   flower.baseRotation = flower.rotation.y;
   flower.userData.typeName = flower.flowerType;
+
   flowers.push(flower);
   scene.add(flower);
 }
+
+function rebuildFlowers(targetCount = calculateFlowerCount()) {
+  const safeTarget = Math.max(Math.floor(targetCount), 0);
+
+  if (safeTarget === flowerCount && flowers.length === safeTarget) {
+    return;
+  }
+
+  flowers.forEach((flower) => {
+    scene.remove(flower);
+  });
+  flowers.length = 0;
+
+  flowerCount = safeTarget;
+  previousType = null;
+
+  for (let i = 0; i < flowerCount; i++) {
+    const flower = createFlower(i);
+    placeFlowerInField(flower, i, flowerCount);
+  }
+}
+
+rebuildFlowers();
 
 const stemUp = new THREE.Vector3(0, 1, 0);
 const stemDirection = new THREE.Vector3();
@@ -768,6 +803,7 @@ function handleResize() {
   camera.updateProjectionMatrix();
   updateRendererPixelRatio();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  rebuildFlowers();
 }
 
 window.addEventListener('resize', handleResize);
