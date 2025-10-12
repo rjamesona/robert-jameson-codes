@@ -32,6 +32,10 @@ scene.add(rimLight);
 
 const flowers = [];
 const flowerCount = 48;
+const FLOWER_HEIGHT_MULTIPLIER = 1.7;
+const FLOWER_HEAD_SCALE = 0.7;
+const STEM_THICKNESS_RANGE = { min: 0.45, max: 0.65 };
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 function makePalette(colors) {
   return colors.map((hex) => new THREE.Color(hex));
@@ -60,7 +64,7 @@ const defaultStemMaterial = new THREE.MeshLambertMaterial({
   flatShading: true
 });
 
-const sharedStemGeometry = new THREE.CylinderGeometry(0.04, 0.055, 1, 10);
+const sharedStemGeometry = new THREE.CylinderGeometry(0.03, 0.04, 1, 10);
 sharedStemGeometry.translate(0, 0.5, 0);
 
 function easeInOut(t) {
@@ -369,7 +373,7 @@ function createFlower(index) {
   const root = new THREE.Group();
 
   const head = new THREE.Group();
-  const headScale = type.headScale ?? 1;
+  const headScale = (type.headScale ?? 1) * FLOWER_HEAD_SCALE;
   const baseColor = type.palette[Math.floor(Math.random() * type.palette.length)].clone();
 
   if (typeof type.buildPetals === 'function') {
@@ -377,7 +381,7 @@ function createFlower(index) {
   }
 
   const coreMaterial = createCoreMaterial(index);
-  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 0), coreMaterial);
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28 * headScale, 0), coreMaterial);
   core.position.y = 0.05;
   head.add(core);
 
@@ -390,12 +394,12 @@ function createFlower(index) {
   root.add(stem);
   root.add(head);
 
-  const fullHeight = type.heightRange
+  const fullHeight = (type.heightRange
     ? randomFloatInRange(type.heightRange)
-    : 1.3 + Math.random() * 1.5;
-  const minHeight = type.minHeightRange
+    : 1.3 + Math.random() * 1.5) * FLOWER_HEIGHT_MULTIPLIER;
+  const minHeight = (type.minHeightRange
     ? randomFloatInRange(type.minHeightRange)
-    : 0.35 + Math.random() * 0.25;
+    : 0.35 + Math.random() * 0.25) * FLOWER_HEIGHT_MULTIPLIER;
 
   head.position.y = minHeight;
 
@@ -423,6 +427,8 @@ function createFlower(index) {
   root.swingPhase = Math.random() * Math.PI * 2;
   root.basePhase = Math.random() * Math.PI * 2;
   root.followProgress = 0;
+  root.minStemThickness = STEM_THICKNESS_RANGE.min;
+  root.maxStemThickness = STEM_THICKNESS_RANGE.max;
   const baseTiltSource = type.baseHeadTilt;
   const baseRollSource = type.baseHeadRoll;
   head.userData.baseTiltX =
@@ -441,7 +447,11 @@ function createFlower(index) {
   root.headTargetQuat = new THREE.Quaternion().copy(head.quaternion);
   root.headCurrentQuat = new THREE.Quaternion().copy(head.quaternion);
 
-  const initialThickness = THREE.MathUtils.lerp(0.85, 1.05, root.followProgress);
+  const initialThickness = THREE.MathUtils.lerp(
+    root.minStemThickness,
+    root.maxStemThickness,
+    root.followProgress
+  );
   stem.scale.set(initialThickness, root.headCurrent.length(), initialThickness);
 
   return root;
@@ -449,13 +459,16 @@ function createFlower(index) {
 
 for (let i = 0; i < flowerCount; i++) {
   const flower = createFlower(i);
-  const radius = 0.6 + Math.random() * 4.2;
-  const angle = Math.random() * Math.PI * 2;
-  const height = (Math.random() * 2 - 1) * 1.8;
+  const progress = (i + 0.5) / flowerCount;
+  const radius = THREE.MathUtils.lerp(2.4, 6.4, Math.sqrt(progress));
+  const angle = i * GOLDEN_ANGLE;
+  const jitterX = (Math.random() - 0.5) * 0.6;
+  const jitterZ = (Math.random() - 0.5) * 0.6;
+  const height = THREE.MathUtils.lerp(-0.5, 0.5, Math.random());
   flower.position.set(
-    Math.cos(angle) * radius,
+    Math.cos(angle) * radius + jitterX,
     height,
-    Math.sin(angle) * radius
+    Math.sin(angle) * radius + jitterZ
   );
   flower.base = flower.position.clone();
   flower.rotation.y = Math.random() * Math.PI * 2;
@@ -474,7 +487,11 @@ function updateStem(flower) {
   const stem = flower.stem;
 
   const length = Math.max(headPosition.length(), 0.08);
-  const thickness = THREE.MathUtils.lerp(0.85, 1.05, flower.followProgress);
+  const thickness = THREE.MathUtils.lerp(
+    flower.minStemThickness,
+    flower.maxStemThickness,
+    flower.followProgress
+  );
 
   stemDirection.copy(headPosition);
 
