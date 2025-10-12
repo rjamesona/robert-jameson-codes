@@ -1,0 +1,12 @@
+{
+  "name": "floating-bloom",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A relaxing WebGL flower garden that follows your cursor.",
+  "scripts": {
+    "start": "serve -s public -l 8080"
+  },
+  "dependencies": {
+    "serve": "^14.2.1"
+  }
+}
