@@ -47,14 +47,25 @@ function makePalette(colors) {
 }
 
 function randomIntInRange([min, max]) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+  const safeMin = Math.floor(toFiniteNumber(min, 0));
+  const safeMax = Math.floor(toFiniteNumber(max, safeMin));
+  const range = Math.max(safeMax - safeMin, 0);
+  return Math.floor(Math.random() * (range + 1)) + safeMin;
 }
 
 function randomFloatInRange([min, max]) {
-  return min + Math.random() * (max - min);
+  const safeMin = toFiniteNumber(min, 0);
+  const safeMax = toFiniteNumber(max, safeMin);
+  const span = Math.max(safeMax - safeMin, 0);
+  return safeMin + Math.random() * span;
 }
 
 const pastelGoldenRatio = 0.61803398875;
+
+function toFiniteNumber(value, fallback) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
 
 function getPastelColor(index) {
   const hue = (index * pastelGoldenRatio) % 1;
@@ -112,13 +123,13 @@ function createCurvedPetalGeometry({
   tipCurl = 0.35,
   arch = 0.18
 }) {
-  const safeSegments = Math.max(Math.floor(Number.isFinite(segments) ? segments : 8), 1);
-  const safeLength = Math.max(Math.abs(Number.isFinite(length) ? length : 1), 0.001);
-  const safeWidth = Math.max(Math.abs(Number.isFinite(width) ? width : 1), 0.001);
-  const safeTaper = Number.isFinite(taper) ? taper : 0.28;
-  const safeCurl = Number.isFinite(curl) ? curl : 0.22;
-  const safeTipCurl = Number.isFinite(tipCurl) ? tipCurl : 0.35;
-  const safeArch = Number.isFinite(arch) ? arch : 0.18;
+  const safeSegments = Math.max(Math.floor(toFiniteNumber(segments, 8)), 1);
+  const safeLength = Math.max(Math.abs(toFiniteNumber(length, 1)), 0.001);
+  const safeWidth = Math.max(Math.abs(toFiniteNumber(width, 1)), 0.001);
+  const safeTaper = toFiniteNumber(taper, 0.28);
+  const safeCurl = toFiniteNumber(curl, 0.22);
+  const safeTipCurl = toFiniteNumber(tipCurl, 0.35);
+  const safeArch = toFiniteNumber(arch, 0.18);
 
   const geometry = new THREE.PlaneGeometry(safeWidth, safeLength, 1, safeSegments);
   const position = geometry.attributes.position;
@@ -138,6 +149,7 @@ function createCurvedPetalGeometry({
     position.setXYZ(i, temp.x, temp.y, temp.z);
   }
 
+  position.needsUpdate = true;
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   geometry.computeBoundingBox();
@@ -160,27 +172,29 @@ function buildRingPetals(head, material, options = {}) {
     arch = 0.16
   } = options;
 
-  const safeCount = Math.max(Math.floor(Number.isFinite(count) ? count : 0), 0);
+  const safeCount = Math.max(Math.floor(toFiniteNumber(count, 0)), 0);
   if (safeCount === 0) {
     return;
   }
 
-  const safeRadius = Number.isFinite(radius) ? radius : 0;
-  const safeTilt = Number.isFinite(tilt) ? tilt : THREE.MathUtils.degToRad(48);
-  const safeOffsetY = Number.isFinite(offsetY) ? offsetY : 0;
-  const safeTwist = Number.isFinite(twist) ? twist : 0;
-  const safeRandomness = Number.isFinite(randomness) ? randomness : 0.08;
-  const safeTaper = Number.isFinite(taper) ? taper : 0.24;
-  const safeCurl = Number.isFinite(curl) ? curl : 0.2;
-  const safeTipCurl = Number.isFinite(tipCurl) ? tipCurl : 0.32;
-  const safeArch = Number.isFinite(arch) ? arch : 0.16;
+  const safeLength = Math.max(Math.abs(toFiniteNumber(length, 1)), 0.001);
+  const safeWidth = Math.max(Math.abs(toFiniteNumber(width, 1)), 0.001);
+  const safeRadius = toFiniteNumber(radius, 0);
+  const safeTilt = toFiniteNumber(tilt, THREE.MathUtils.degToRad(48));
+  const safeOffsetY = toFiniteNumber(offsetY, 0);
+  const safeTwist = toFiniteNumber(twist, 0);
+  const safeRandomness = Math.max(0, toFiniteNumber(randomness, 0.08));
+  const safeTaper = toFiniteNumber(taper, 0.24);
+  const safeCurl = toFiniteNumber(curl, 0.2);
+  const safeTipCurl = toFiniteNumber(tipCurl, 0.32);
+  const safeArch = toFiniteNumber(arch, 0.16);
 
   const group = new THREE.Group();
 
   for (let i = 0; i < safeCount; i++) {
     const petalGeometry = createCurvedPetalGeometry({
-      length,
-      width,
+      length: safeLength,
+      width: safeWidth,
       taper: safeTaper * THREE.MathUtils.lerp(0.9, 1.1, Math.random()),
       curl: safeCurl * THREE.MathUtils.lerp(0.85, 1.2, Math.random()),
       tipCurl: safeTipCurl * THREE.MathUtils.lerp(0.85, 1.25, Math.random()),
@@ -410,7 +424,8 @@ function createFlower(index) {
   const root = new THREE.Group();
 
   const head = new THREE.Group();
-  const headScale = (type.headScale ?? 1) * FLOWER_HEAD_SCALE;
+  const baseHeadScale = toFiniteNumber(type.headScale, 1);
+  const headScale = baseHeadScale * FLOWER_HEAD_SCALE;
   const baseColor = type.palette[Math.floor(Math.random() * type.palette.length)].clone();
 
   if (typeof type.buildPetals === 'function') {
