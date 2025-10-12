@@ -96,17 +96,16 @@ function createFlower() {
     head.add(petal);
   }
 
-  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28 * headScale, 0), coreMaterial);
-  core.position.y = 0.05 * headScale;
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 0), coreMaterial);
+  core.position.y = 0.05;
   head.add(core);
 
   const stem = new THREE.Mesh(sharedStemGeometry, stemMaterial);
   root.add(stem);
   root.add(head);
 
-  const heightScale = 0.5;
-  const fullHeight = (1.3 + Math.random() * 1.5) * heightScale;
-  const minHeight = (0.35 + Math.random() * 0.25) * heightScale;
+  const fullHeight = 1.3 + Math.random() * 1.5;
+  const minHeight = 0.35 + Math.random() * 0.25;
 
   head.position.y = minHeight;
 
@@ -117,7 +116,6 @@ function createFlower() {
   root.headBase = new THREE.Vector3(0, minHeight, 0);
   root.headTarget = root.headBase.clone();
   root.headCurrent = root.headBase.clone();
-  root.headAttachOffset = 0.5 * headScale * 0.65;
 
   root.pointerInfluence = 0.9 + Math.random() * 1.1;
   root.swayAmount = 0.3 + Math.random() * 0.35;
@@ -134,9 +132,8 @@ function createFlower() {
   root.followProgress = 0;
 
   const initialThickness = THREE.MathUtils.lerp(0.85, 1.05, root.followProgress);
-  const initialLength = Math.max(root.headCurrent.length() - root.headAttachOffset, 0.08);
-  stem.scale.set(initialThickness, initialLength, initialThickness);
-  stem.position.set(0, initialLength * 0.5, 0);
+  stem.scale.set(initialThickness, root.headCurrent.length(), initialThickness);
+  stem.position.set(0, root.headCurrent.y * 0.5, 0);
 
   return root;
 }
@@ -166,23 +163,21 @@ function updateStem(flower) {
   const headPosition = flower.headCurrent;
   const stem = flower.stem;
 
-  const headDistance = headPosition.length();
-  const length = Math.max(headDistance - flower.headAttachOffset, 0.06);
+  const length = Math.max(headPosition.length(), 0.08);
   const thickness = THREE.MathUtils.lerp(0.85, 1.05, flower.followProgress);
 
   stemDirection.copy(headPosition);
 
   if (stemDirection.lengthSq() < 1e-6) {
     stem.quaternion.identity();
-    stem.position.set(0, length * 0.5, 0);
   } else {
     stemDirection.normalize();
     stemQuaternion.setFromUnitVectors(stemUp, stemDirection);
     stem.quaternion.copy(stemQuaternion);
-    stem.position.copy(stemDirection).multiplyScalar(length * 0.5);
   }
 
   stem.scale.set(thickness, length, thickness);
+  stem.position.copy(headPosition).multiplyScalar(0.5);
 }
 
 // Fireflies
