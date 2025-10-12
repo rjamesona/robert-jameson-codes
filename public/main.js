@@ -431,6 +431,16 @@ function createFlower(index) {
     typeof baseRollSource === 'function' ? baseRollSource() : baseRollSource ?? 0;
   root.flowerType = type.name;
 
+  head.rotation.x = head.userData.baseTiltX;
+  head.rotation.z = head.userData.baseTiltZ;
+
+  root.headBaseTiltX = head.userData.baseTiltX;
+  root.headBaseTiltZ = head.userData.baseTiltZ;
+  root.headSpinAngle = Math.random() * Math.PI * 2;
+  root.headTargetEuler = new THREE.Euler();
+  root.headTargetQuat = new THREE.Quaternion().copy(head.quaternion);
+  root.headCurrentQuat = new THREE.Quaternion().copy(head.quaternion);
+
   const initialThickness = THREE.MathUtils.lerp(0.85, 1.05, root.followProgress);
   stem.scale.set(initialThickness, root.headCurrent.length(), initialThickness);
 
@@ -606,9 +616,24 @@ function animate() {
     flower.headCurrent.lerp(flower.headTarget, followLerp);
     flower.head.position.copy(flower.headCurrent);
 
-    flower.head.rotation.y += flower.headSpin * delta * 60;
-    flower.head.rotation.x =
+    flower.headSpinAngle += flower.headSpin * delta * 60;
+
+    const gentleNod =
       Math.sin(elapsed * 0.08 + flower.basePhase * 0.6) * THREE.MathUtils.degToRad(2.5);
+    const pointerTurn = THREE.MathUtils.degToRad(12) * pointer.x * reactionProgress;
+    const pointerTiltX = THREE.MathUtils.degToRad(9) * pointer.y * reactionProgress;
+    const pointerTiltZ = THREE.MathUtils.degToRad(-7) * pointer.x * reactionProgress;
+
+    flower.headTargetEuler.set(
+      flower.headBaseTiltX + pointerTiltX + gentleNod,
+      flower.headSpinAngle + pointerTurn,
+      flower.headBaseTiltZ + pointerTiltZ
+    );
+
+    flower.headTargetQuat.setFromEuler(flower.headTargetEuler);
+    const rotationLerp = THREE.MathUtils.lerp(0.015, 0.05, reactionProgress);
+    flower.headCurrentQuat.slerp(flower.headTargetQuat, rotationLerp);
+    flower.head.quaternion.copy(flower.headCurrentQuat);
 
     updateStem(flower);
 
