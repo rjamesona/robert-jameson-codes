@@ -613,6 +613,8 @@ const fireflies = new THREE.Points(fireflyGeometry, fireflyMaterial);
 scene.add(fireflies);
 
 const pointer = new THREE.Vector2(0, 0);
+const pointerSmoothed = new THREE.Vector2(0, 0);
+const POINTER_RESPONSE = 0.1;
 const targetRotation = new THREE.Euler();
 const pointerOffset = new THREE.Vector3();
 const pointerWorldTarget = new THREE.Vector3();
@@ -640,13 +642,15 @@ function animate() {
   const delta = Math.min(elapsed - previousElapsed, 0.1);
   previousElapsed = elapsed;
 
-  raycaster.setFromCamera(pointer, camera);
+  pointerSmoothed.lerp(pointer, POINTER_RESPONSE);
+
+  raycaster.setFromCamera(pointerSmoothed, camera);
   if (!raycaster.ray.intersectPlane(groundPlane, pointerWorldTarget)) {
     pointerWorldTarget.set(0, 0, 0);
   }
   pointerWorldCurrent.lerp(pointerWorldTarget, 0.08);
 
-  targetRotation.set(pointer.y * 0.1, pointer.x * 0.25, 0);
+  targetRotation.set(pointerSmoothed.y * 0.1, pointerSmoothed.x * 0.25, 0);
   scene.rotation.x = THREE.MathUtils.lerp(scene.rotation.x, targetRotation.x, 0.02);
   scene.rotation.y = THREE.MathUtils.lerp(scene.rotation.y, targetRotation.y, 0.03);
 
@@ -680,7 +684,11 @@ function animate() {
       flower.swayAmount * 0.85;
     const bob = Math.sin(elapsed * flower.bobSpeed + flower.swingPhase) * flower.bobAmount;
 
-    pointerOffset.set(pointer.x * 0.45, pointer.y * 0.35, pointer.x * 0.4);
+    pointerOffset.set(
+      pointerSmoothed.x * 0.45,
+      pointerSmoothed.y * 0.35,
+      pointerSmoothed.x * 0.4
+    );
     pointerOffset.multiplyScalar(flower.pointerInfluence * reactionProgress);
 
     flower.headTarget.set(
@@ -701,8 +709,8 @@ function animate() {
 
     const gentleNod =
       Math.sin(elapsed * 0.08 + flower.basePhase * 0.6) * THREE.MathUtils.degToRad(2.5);
-    const pointerTiltX = THREE.MathUtils.degToRad(9) * pointer.y * reactionProgress;
-    const pointerTiltZ = THREE.MathUtils.degToRad(-7) * pointer.x * reactionProgress;
+    const pointerTiltX = THREE.MathUtils.degToRad(9) * pointerSmoothed.y * reactionProgress;
+    const pointerTiltZ = THREE.MathUtils.degToRad(-7) * pointerSmoothed.x * reactionProgress;
 
     pointerDirection.copy(pointerWorldCurrent).sub(flower.position);
     const planarDistanceSq =
@@ -750,7 +758,7 @@ function animate() {
     flower.position.z = THREE.MathUtils.lerp(flower.position.z, baseTargetZ, 0.02);
 
     const rotationTargetX =
-      pointer.y * 0.06 * reactionProgress +
+      pointerSmoothed.y * 0.06 * reactionProgress +
       Math.sin(elapsed * 0.12 + flower.swingPhase) * 0.04;
     flower.rotation.x = THREE.MathUtils.lerp(flower.rotation.x, rotationTargetX, 0.03);
   });
