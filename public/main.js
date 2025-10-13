@@ -66,6 +66,9 @@ const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const FLOWER_AREA_PER_PLANT = 45000;
 const MIN_FLOWER_COUNT = 24;
 const MAX_FLOWER_COUNT = 120;
+const BLOOM_DELAY_SECONDS = 1.2;
+const BLOOM_DURATION_SECONDS = 10;
+const BLOOM_STAGGER_RANGE_SECONDS = 30;
 
 function calculateFlowerCount() {
   const viewportArea = Math.max(window.innerWidth * window.innerHeight, 1);
@@ -214,7 +217,8 @@ function buildRingPetals(head, material, options = {}) {
     taper = 0.24,
     curl = 0.2,
     tipCurl = 0.32,
-    arch = 0.16
+    arch = 0.16,
+    budRadius
   } = options;
 
   const safeCount = Math.max(Math.floor(toFiniteNumber(count, 0)), 0);
@@ -238,6 +242,10 @@ function buildRingPetals(head, material, options = {}) {
   const petals = [];
   const baseOpacity = THREE.MathUtils.clamp(toFiniteNumber(material.opacity, 1), 0, 1);
   const closedRadiusFactor = Math.max(toFiniteNumber(options.closedRadiusFactor, 1), 0);
+  const hasBudRadius = budRadius !== undefined && budRadius !== null;
+  const safeBudRadius = hasBudRadius
+    ? Math.max(Math.abs(toFiniteNumber(budRadius, safeRadius)), 0)
+    : null;
   group.userData = {
     petals,
     baseOpacity,
@@ -258,13 +266,15 @@ function buildRingPetals(head, material, options = {}) {
 
     const petal = new THREE.Mesh(petalGeometry, material);
     const angle = (i / safeCount) * Math.PI * 2;
+    const directionX = Math.cos(angle);
+    const directionZ = Math.sin(angle);
     const randomTilt = (Math.random() - 0.5) * safeRandomness;
     const randomTwist = (Math.random() - 0.5) * safeRandomness * 0.8;
     const baseBend = THREE.MathUtils.degToRad(THREE.MathUtils.randFloatSpread(4));
     petal.position.set(
-      Math.cos(angle) * safeRadius,
+      directionX * safeRadius,
       safeOffsetY,
-      Math.sin(angle) * safeRadius
+      directionZ * safeRadius
     );
     petal.rotation.set(safeTilt + randomTilt, angle + safeTwist, baseBend + randomTwist);
     petal.userData.baseRotationX = petal.rotation.x;
@@ -273,9 +283,16 @@ function buildRingPetals(head, material, options = {}) {
     petal.rotation.x = petal.userData.closedRotationX;
     petal.scale.setScalar(petal.userData.baseScale * 0.86);
     petal.userData.basePosition = petal.position.clone();
-    petal.userData.closedPosition = petal.userData.basePosition.clone();
-    petal.userData.closedPosition.x *= closedRadiusFactor;
-    petal.userData.closedPosition.z *= closedRadiusFactor;
+    const baseRadius = Math.hypot(petal.userData.basePosition.x, petal.userData.basePosition.z);
+    const closedRadiusSource = safeBudRadius ?? baseRadius;
+    const closedRadius = closedRadiusSource * closedRadiusFactor;
+    const targetDirectionX = baseRadius > 0 ? petal.userData.basePosition.x / baseRadius : directionX;
+    const targetDirectionZ = baseRadius > 0 ? petal.userData.basePosition.z / baseRadius : directionZ;
+    petal.userData.closedPosition = new THREE.Vector3(
+      targetDirectionX * closedRadius,
+      safeOffsetY,
+      targetDirectionZ * closedRadius
+    );
     petal.position.copy(petal.userData.closedPosition);
     petal.castShadow = false;
     petal.receiveShadow = false;
@@ -354,6 +371,7 @@ const flowerTypes = [
         length: 1.15 * 1.1 * headScale,
         width: 0.29 * headScale,
         radius: 0.18 * headScale,
+        budRadius: 0.24 * headScale,
         tilt: THREE.MathUtils.degToRad(60),
         offsetY: 0.05 * headScale,
         randomness: 0.11,
@@ -375,6 +393,7 @@ const flowerTypes = [
         length: 0.82 * 1.1 * headScale,
         width: 0.22 * headScale,
         radius: 0.12 * headScale,
+        budRadius: 0.24 * headScale,
         tilt: THREE.MathUtils.degToRad(54),
         offsetY: 0.12 * headScale,
         randomness: 0.09,
@@ -557,18 +576,19 @@ function createFlower(index) {
 
 function placeFlowerInField(flower, index, total) {
   const safeTotal = Math.max(total, 1);
-  const progress = (index + 0.5) / safeTotal;
-  const radius = THREE.MathUtils.lerp(2.4, 6.4, Math.sqrt(progress));
+  const normalizedIndex = safeTotal > 1 ? index / (safeTotal - 1) : 0;
+  const radialProgress = Math.sqrt(THREE.MathUtils.clamp(normalizedIndex, 0, 1));
+  const radius = radialProgress * 6.4;
   const angle = index * GOLDEN_ANGLE;
-  const jitterX = (Math.random() - 0.5) * 0.6;
-  const jitterZ = (Math.random() - 0.5) * 0.6;
+  const jitterStrength = THREE.MathUtils.lerp(0.08, 0.6, radialProgress);
+  const jitterX = (Math.random() - 0.5) * jitterStrength;
+  const jitterZ = (Math.random() - 0.5) * jitterStrength;
   const height = THREE.MathUtils.lerp(-0.5, 0.5, Math.random());
 
-  flower.position.set(
-    Math.cos(angle) * radius + jitterX,
-    height,
-    Math.sin(angle) * radius + jitterZ
-  );
+  const x = Math.cos(angle) * radius + jitterX;
+  const z = Math.sin(angle) * radius + jitterZ;
+
+  flower.position.set(x, height, z);
 
   flower.base = flower.position.clone();
   flower.rotation.y = Math.random() * Math.PI * 2;
@@ -744,9 +764,6 @@ const raycaster = new THREE.Raycaster();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const guideFireflyPosition = new THREE.Vector3(0, 0.9, 0);
 const guideFireflyTarget = new THREE.Vector3();
-const BLOOM_DELAY_SECONDS = 1.2;
-const BLOOM_DURATION_SECONDS = 10;
-const BLOOM_STAGGER_RANGE_SECONDS = 30;
 const BLOOM_POINTER_ACTIVATION_DISTANCE = 8;
 const BLOOM_POINTER_ACTIVATION_DISTANCE_SQ =
   BLOOM_POINTER_ACTIVATION_DISTANCE * BLOOM_POINTER_ACTIVATION_DISTANCE;
