@@ -268,178 +268,107 @@ function buildRingPetals(head, material, options = {}) {
 
 const flowerTypes = [
   {
-    name: 'Aurora Daisy',
-    palette: makePalette(['#ffaad9', '#ffe4f7', '#ffcd9b', '#c5f1ff']),
-    heightRange: [1.45, 2.6],
-    minHeightRange: [0.38, 0.62],
-    baseHeadTilt: () => THREE.MathUtils.degToRad(THREE.MathUtils.randFloatSpread(6)),
-    baseHeadRoll: () => THREE.MathUtils.degToRad(THREE.MathUtils.randFloatSpread(4)),
-    buildPetals(head, baseColor, headScale) {
-      const primaryMaterial = createPetalMaterial(baseColor, {
-        emissiveMultiplier: 0.32,
-        opacity: 0.92
-      });
-      buildRingPetals(head, primaryMaterial, {
-        count: 16,
-        length: 0.9 * headScale,
-        width: 0.3 * headScale,
-        radius: 0.12 * headScale,
-        tilt: THREE.MathUtils.degToRad(52),
-        offsetY: 0.08 * headScale,
-        randomness: 0.12,
-        taper: 0.2,
-        curl: 0.24,
-        tipCurl: 0.42,
-        arch: 0.22
-      });
-
-      const accentMaterial = createPetalMaterial(
-        baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.35),
-        { emissiveMultiplier: 0.25, opacity: 0.85 }
-      );
-      buildRingPetals(head, accentMaterial, {
-        count: 10,
-        length: 0.55 * headScale,
-        width: 0.22 * headScale,
-        radius: 0.06 * headScale,
-        tilt: THREE.MathUtils.degToRad(34),
-        offsetY: 0.12 * headScale,
-        randomness: 0.08,
-        taper: 0.32,
-        curl: 0.18,
-        tipCurl: 0.3,
-        arch: 0.18
-      });
-    },
-    addDetails(head, baseColor, headScale) {
-      const haloGeometry = new THREE.TorusGeometry(0.28 * headScale, 0.01 * headScale, 8, 32);
-      const haloMaterial = new THREE.MeshBasicMaterial({
-        color: baseColor.clone().lerp(new THREE.Color('#fdf2ff'), 0.6),
-        transparent: true,
-        opacity: 0.35
-      });
-      const halo = new THREE.Mesh(haloGeometry, haloMaterial);
-      halo.rotation.x = Math.PI / 2;
-      halo.position.y = 0.02 * headScale;
-      head.add(halo);
-    }
-  },
-  {
-    name: 'Twilight Lily',
-    palette: makePalette(['#d0adff', '#b6e0ff', '#f5a6ff', '#c4ffe9']),
-    headScale: 1.15,
-    heightRange: [1.2, 2.1],
-    minHeightRange: [0.32, 0.55],
-    baseHeadTilt: () => THREE.MathUtils.degToRad(-6 + Math.random() * 4),
+    name: 'Sunburst Sunflower',
+    palette: makePalette(['#f9c80e', '#f7a400', '#fdd85d', '#ffcd38']),
+    headScale: 1.2,
+    heightRange: [1.6, 2.6],
+    minHeightRange: [0.44, 0.7],
+    baseHeadTilt: () => THREE.MathUtils.degToRad(THREE.MathUtils.randFloatSpread(3)),
+    baseHeadRoll: () => THREE.MathUtils.degToRad(THREE.MathUtils.randFloatSpread(2)),
     stemMaterial: new THREE.MeshLambertMaterial({
-      color: '#377965',
-      emissive: '#1d4035',
+      color: '#3f8f3c',
+      emissive: '#1d4a1c',
       flatShading: true
     }),
     buildPetals(head, baseColor, headScale = 1) {
-      const material = createPetalMaterial(baseColor, {
-        emissiveMultiplier: 0.38,
-        opacity: 0.95
-      });
-      buildRingPetals(head, material, {
-        count: 6,
-        length: 1.1 * headScale,
-        width: 0.34 * headScale,
-        radius: 0.08 * headScale,
-        tilt: THREE.MathUtils.degToRad(68),
-        offsetY: 0.04 * headScale,
-        randomness: 0.09,
-        taper: 0.14,
-        curl: 0.32,
-        tipCurl: 0.48,
-        arch: 0.24
-      });
-
-      const innerMaterial = createPetalMaterial(
-        baseColor.clone().lerp(new THREE.Color('#f7f5ff'), 0.45),
-        { emissiveMultiplier: 0.28, opacity: 0.9 }
-      );
-      buildRingPetals(head, innerMaterial, {
-        count: 8,
-        length: 0.6 * headScale,
-        width: 0.18 * headScale,
-        radius: 0.03 * headScale,
-        tilt: THREE.MathUtils.degToRad(32),
-        offsetY: 0.2 * headScale,
-        randomness: 0.05,
-        taper: 0.28,
-        curl: 0.22,
-        tipCurl: 0.38,
-        arch: 0.18
-      });
-    },
-    addDetails(head, baseColor, headScale = 1) {
-      const sparkGeometry = new THREE.SphereGeometry(0.05 * headScale, 8, 6);
-      const sparkMaterial = new THREE.MeshBasicMaterial({
-        color: baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.55)
-      });
-      for (let i = 0; i < 6; i++) {
-        const spark = new THREE.Mesh(sparkGeometry, sparkMaterial);
-        const angle = (i / 6) * Math.PI * 2;
-        const radius = 0.14 * headScale;
-        spark.position.set(Math.cos(angle) * radius, 0.3 * headScale, Math.sin(angle) * radius);
-        head.add(spark);
-      }
-    }
-  },
-  {
-    name: 'Nebula Bloom',
-    palette: makePalette(['#ffc1f9', '#a6f0ff', '#ffe4b8', '#d9b8ff']),
-    headScale: 0.95,
-    heightRange: [1.6, 2.8],
-    minHeightRange: [0.42, 0.65],
-    baseHeadTilt: () => THREE.MathUtils.degToRad(Math.random() * 4 - 2),
-    baseHeadRoll: () => THREE.MathUtils.degToRad(Math.random() * 6 - 3),
-    buildPetals(head, baseColor, headScale = 1) {
-      const outerMaterial = createPetalMaterial(baseColor, {
-        emissiveMultiplier: 0.3,
-        opacity: 0.88
+      const outerColor = baseColor.clone().lerp(new THREE.Color('#fff3a3'), 0.25);
+      const outerMaterial = new THREE.MeshLambertMaterial({
+        color: outerColor,
+        emissive: outerColor.clone().multiplyScalar(0.28),
+        flatShading: true,
+        side: THREE.DoubleSide
       });
       buildRingPetals(head, outerMaterial, {
-        count: 20,
-        length: 0.7 * headScale,
-        width: 0.24 * headScale,
-        radius: 0.18 * headScale,
-        tilt: THREE.MathUtils.degToRad(40),
-        offsetY: 0.1 * headScale,
-        randomness: 0.14,
-        taper: 0.26,
-        curl: 0.2,
-        tipCurl: 0.34,
-        arch: 0.2
-      });
-
-      const shimmerMaterial = createPetalMaterial(
-        baseColor.clone().lerp(new THREE.Color('#fff9ff'), 0.55),
-        { emissiveMultiplier: 0.22, opacity: 0.75 }
-      );
-      buildRingPetals(head, shimmerMaterial, {
-        count: 32,
-        length: 0.42 * headScale,
-        width: 0.12 * headScale,
-        radius: 0.2 * headScale,
-        tilt: THREE.MathUtils.degToRad(24),
-        offsetY: 0.18 * headScale,
-        randomness: 0.18,
-        taper: 0.38,
-        curl: 0.18,
-        tipCurl: 0.26,
+        count: 28,
+        length: 1.15 * headScale,
+        width: 0.34 * headScale,
+        radius: 0.16 * headScale,
+        tilt: THREE.MathUtils.degToRad(58),
+        offsetY: 0.05 * headScale,
+        randomness: 0.06,
+        taper: 0.32,
+        curl: 0.16,
+        tipCurl: 0.24,
         arch: 0.14
       });
-    },
-    addDetails(head, baseColor, headScale = 1) {
-      const starGeometry = new THREE.OctahedronGeometry(0.06 * headScale, 0);
-      const starMaterial = new THREE.MeshBasicMaterial({
-        color: baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.7)
+
+      const innerColor = baseColor.clone().lerp(new THREE.Color('#ffe27b'), 0.4);
+      const innerMaterial = new THREE.MeshLambertMaterial({
+        color: innerColor,
+        emissive: innerColor.clone().multiplyScalar(0.26),
+        flatShading: true,
+        side: THREE.DoubleSide
       });
-      const star = new THREE.Mesh(starGeometry, starMaterial);
-      star.position.y = 0.42 * headScale;
-      head.add(star);
+      buildRingPetals(head, innerMaterial, {
+        count: 18,
+        length: 0.82 * headScale,
+        width: 0.26 * headScale,
+        radius: 0.1 * headScale,
+        tilt: THREE.MathUtils.degToRad(52),
+        offsetY: 0.12 * headScale,
+        randomness: 0.05,
+        taper: 0.3,
+        curl: 0.18,
+        tipCurl: 0.22,
+        arch: 0.12
+      });
+    },
+    createCore(head, baseColor, headScale = 1) {
+      const diskGeometry = new THREE.SphereGeometry(0.26 * headScale, 24, 18);
+      const diskMaterial = new THREE.MeshLambertMaterial({
+        color: '#4a2c0a',
+        emissive: '#1f1406',
+        flatShading: true
+      });
+      const disk = new THREE.Mesh(diskGeometry, diskMaterial);
+      disk.scale.set(1, 0.4, 1);
+      disk.position.y = 0.09 * headScale;
+      head.add(disk);
+
+      const seedCount = 140;
+      const seedPositions = new Float32Array(seedCount * 3);
+      const seedRadius = 0.22 * headScale;
+      for (let i = 0; i < seedCount; i++) {
+        const angle = i * GOLDEN_ANGLE;
+        const radialProgress = Math.sqrt((i + 0.5) / seedCount);
+        const radius = radialProgress * seedRadius;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = 0.1 * headScale + Math.sin(radialProgress * Math.PI) * 0.015 * headScale;
+        seedPositions.set([x, y, z], i * 3);
+      }
+      const seedGeometry = new THREE.BufferGeometry();
+      seedGeometry.setAttribute('position', new THREE.BufferAttribute(seedPositions, 3));
+      const seedMaterial = new THREE.PointsMaterial({
+        color: '#6b3d0e',
+        size: 0.02 * headScale,
+        sizeAttenuation: true
+      });
+      const seeds = new THREE.Points(seedGeometry, seedMaterial);
+      head.add(seeds);
+
+      const ringGeometry = new THREE.TorusGeometry(0.24 * headScale, 0.015 * headScale, 12, 32);
+      const ringMaterial = new THREE.MeshBasicMaterial({
+        color: baseColor.clone().lerp(new THREE.Color('#f6c02c'), 0.6),
+        transparent: true,
+        opacity: 0.4
+      });
+      const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 0.06 * headScale;
+      head.add(ring);
+
+      return disk;
     }
   }
 ];
@@ -447,7 +376,8 @@ const flowerTypes = [
 let previousType = null;
 
 function pickFlowerType() {
-  const candidates = previousType
+  const hasVariety = flowerTypes.length > 1;
+  const candidates = previousType && hasVariety
     ? flowerTypes.filter((candidate) => candidate !== previousType)
     : flowerTypes;
   const type = candidates[Math.floor(Math.random() * candidates.length)];
@@ -477,10 +407,14 @@ function createFlower(index) {
     type.buildPetals(head, baseColor, headScale);
   }
 
-  const coreMaterial = createCoreMaterial(index);
-  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28 * headScale, 0), coreMaterial);
-  core.position.y = 0.05;
-  head.add(core);
+  if (typeof type.createCore === 'function') {
+    type.createCore(head, baseColor, headScale, index);
+  } else {
+    const coreMaterial = createCoreMaterial(index);
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28 * headScale, 0), coreMaterial);
+    core.position.y = 0.05;
+    head.add(core);
+  }
 
   if (typeof type.addDetails === 'function') {
     type.addDetails(head, baseColor, headScale);
