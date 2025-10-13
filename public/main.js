@@ -14,11 +14,23 @@ document.body.appendChild(renderer.domElement);
 
 const overlay = document.querySelector('.overlay');
 if (overlay) {
-  const hideOverlay = () => {
-    overlay.classList.add('overlay--hidden');
+  const INACTIVITY_DELAY_MS = 2000;
+  let overlayShowTimeoutId = null;
+
+  const scheduleOverlayShow = () => {
+    window.clearTimeout(overlayShowTimeoutId);
+    overlayShowTimeoutId = window.setTimeout(() => {
+      overlay.classList.remove('overlay--hidden');
+      overlayShowTimeoutId = null;
+    }, INACTIVITY_DELAY_MS);
   };
 
-  window.addEventListener('pointermove', hideOverlay, { once: true });
+  const handlePointerMove = () => {
+    overlay.classList.add('overlay--hidden');
+    scheduleOverlayShow();
+  };
+
+  window.addEventListener('pointermove', handlePointerMove);
 }
 
 const scene = new THREE.Scene();
