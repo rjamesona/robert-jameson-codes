@@ -38,7 +38,7 @@ body {
   mix-blend-mode: screen;
   text-shadow: 0 12px 50px rgba(11, 17, 31, 0.85);
   z-index: 1;
-  transition: opacity 0.6s ease;
+  transition: opacity 1.6s ease-in-out;
 }
 
 .overlay h1 {
