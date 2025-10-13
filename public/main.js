@@ -794,16 +794,16 @@ function animate() {
     }
   }
 
+  let bloomElapsedSeconds = 0;
   let bloomProgress = 0;
   if (bloomStartElapsed !== null) {
-    const bloomElapsed = Math.max(0, elapsed - bloomStartElapsed);
+    bloomElapsedSeconds = Math.max(0, elapsed - bloomStartElapsed);
     bloomProgress = THREE.MathUtils.clamp(
-      bloomElapsed / BLOOM_DURATION_SECONDS,
+      bloomElapsedSeconds / BLOOM_DURATION_SECONDS,
       0,
       1
     );
   }
-  const bloomElapsedSeconds = bloomProgress * BLOOM_DURATION_SECONDS;
 
   pointerSmoothed.lerp(pointer, POINTER_RESPONSE);
 
