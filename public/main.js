@@ -506,10 +506,11 @@ function createFlower(index) {
   head.rotation.x = head.userData.baseTiltX;
   head.rotation.z = head.userData.baseTiltZ;
 
-  root.headBaseTiltX = head.userData.baseTiltX;
-  root.headBaseTiltZ = head.userData.baseTiltZ;
+  root.headBaseQuat = new THREE.Quaternion().copy(head.quaternion);
+  root.headBaseDirection = new THREE.Vector3(0, 1, 0)
+    .applyQuaternion(root.headBaseQuat)
+    .normalize();
   root.headSpinAngle = Math.random() * Math.PI * 2;
-  root.headTargetEuler = new THREE.Euler();
   root.headTargetQuat = new THREE.Quaternion().copy(head.quaternion);
   root.headCurrentQuat = new THREE.Quaternion().copy(head.quaternion);
 
@@ -676,6 +677,12 @@ const pointerOffset = new THREE.Vector3();
 const pointerWorldTarget = new THREE.Vector3();
 const pointerWorldCurrent = new THREE.Vector3();
 const pointerDirection = new THREE.Vector3();
+const pointerLocalTarget = new THREE.Vector3();
+const headLookDirection = new THREE.Vector3();
+const headSpinAxis = new THREE.Vector3();
+const headDeltaQuaternion = new THREE.Quaternion();
+const headLookQuaternion = new THREE.Quaternion();
+const headSpinQuaternion = new THREE.Quaternion();
 const raycaster = new THREE.Raycaster();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const guideFireflyPosition = new THREE.Vector3(0, 0.9, 0);
@@ -765,11 +772,6 @@ function animate() {
 
     flower.headSpinAngle += flower.headSpin * delta * 60;
 
-    const gentleNod =
-      Math.sin(elapsed * 0.08 + flower.basePhase * 0.6) * THREE.MathUtils.degToRad(2.5);
-    const pointerTiltX = THREE.MathUtils.degToRad(9) * pointerSmoothed.y * reactionProgress;
-    const pointerTiltZ = THREE.MathUtils.degToRad(-7) * pointerSmoothed.x * reactionProgress;
-
     pointerDirection.copy(pointerWorldCurrent).sub(flower.position);
     const planarDistanceSq =
       pointerDirection.x * pointerDirection.x + pointerDirection.z * pointerDirection.z;
@@ -778,21 +780,27 @@ function animate() {
       pointerFacing = Math.atan2(pointerDirection.x, pointerDirection.z);
     }
 
-    const pointerYawDelta = THREE.MathUtils.clamp(
-      shortestAngleBetween(flower.rotation.y, pointerFacing),
-      -Math.PI / 3,
-      Math.PI / 3
-    );
-    const pointerTurn = pointerYawDelta * 0.55 * reactionProgress;
+    pointerLocalTarget.copy(pointerWorldCurrent);
+    flower.worldToLocal(pointerLocalTarget);
+    headLookDirection.copy(pointerLocalTarget).sub(flower.head.position);
 
-    flower.headTargetEuler.set(
-      flower.headBaseTiltX + pointerTiltX + gentleNod,
-      flower.headSpinAngle + pointerTurn,
-      flower.headBaseTiltZ + pointerTiltZ
-    );
+    if (headLookDirection.lengthSq() > 1e-6) {
+      headLookDirection.normalize();
+      headDeltaQuaternion
+        .setFromUnitVectors(flower.headBaseDirection, headLookDirection);
+      headLookQuaternion.copy(headDeltaQuaternion).multiply(flower.headBaseQuat);
+      headSpinAxis.copy(headLookDirection);
+    } else {
+      headLookQuaternion.copy(flower.headBaseQuat);
+      headSpinAxis.copy(flower.headBaseDirection);
+    }
 
-    flower.headTargetQuat.setFromEuler(flower.headTargetEuler);
-    const rotationLerp = THREE.MathUtils.lerp(0.009, 0.032, reactionProgress);
+    headSpinAxis.normalize();
+    headSpinQuaternion.setFromAxisAngle(headSpinAxis, flower.headSpinAngle);
+    headLookQuaternion.multiply(headSpinQuaternion);
+
+    const rotationLerp = THREE.MathUtils.lerp(0.015, 0.05, reactionProgress);
+    flower.headTargetQuat.copy(flower.headBaseQuat).slerp(headLookQuaternion, reactionProgress);
     flower.headCurrentQuat.slerp(flower.headTargetQuat, rotationLerp);
     flower.head.quaternion.copy(flower.headCurrentQuat);
 
