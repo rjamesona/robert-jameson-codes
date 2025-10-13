@@ -39,6 +39,21 @@ body {
   text-shadow: 0 12px 50px rgba(11, 17, 31, 0.85);
   z-index: 1;
   transition: opacity 1.6s ease-in-out;
+  overflow: visible;
+}
+
+.overlay__text {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 auto;
+  padding: clamp(0.75rem, 1.2vw + 0.4rem, 1.5rem) clamp(1.5rem, 2vw + 0.75rem, 3rem);
+  backdrop-filter: blur(8px);
+  background: rgba(10, 18, 32, 0.12);
+  border-radius: 999px;
+  box-shadow: 0 0 65px rgba(64, 123, 255, 0.14);
 }
 
 .overlay h1 {
@@ -46,13 +61,171 @@ body {
   letter-spacing: 0.25rem;
   font-size: clamp(1.75rem, 3vw + 1rem, 4.25rem);
   text-transform: uppercase;
-  margin-bottom: 1rem;
 }
 
 .overlay p {
   font-weight: 300;
   opacity: 0.78;
   font-size: clamp(0.95rem, 1vw + 0.6rem, 1.5rem);
+}
+
+.overlay__fireflies {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(48rem, 90vw);
+  height: clamp(12rem, 26vh, 20rem);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  overflow: visible;
+  z-index: -1;
+}
+
+.overlay__fireflies span {
+  --delta-x: 0%;
+  --delta-y: 0%;
+  --travel-duration: 14s;
+  --blink-duration: 2.8s;
+  position: absolute;
+  width: clamp(0.45rem, 0.4vw + 0.2rem, 0.75rem);
+  height: clamp(0.45rem, 0.4vw + 0.2rem, 0.75rem);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 248, 196, 0.95) 0%, rgba(255, 248, 196, 0.08) 70%);
+  box-shadow: 0 0 16px rgba(255, 249, 196, 0.8), 0 0 38px rgba(143, 186, 255, 0.45);
+  mix-blend-mode: screen;
+  animation: fireflyDrift var(--travel-duration) ease-in-out infinite,
+    fireflyBlink var(--blink-duration) ease-in-out infinite alternate;
+}
+
+.overlay__fireflies span:nth-child(1) {
+  top: 15%;
+  left: 18%;
+  --delta-x: 14%;
+  --delta-y: -12%;
+  --travel-duration: 16s;
+  --blink-duration: 3.6s;
+}
+
+.overlay__fireflies span:nth-child(2) {
+  top: 22%;
+  left: 58%;
+  --delta-x: -18%;
+  --delta-y: -6%;
+  --travel-duration: 13s;
+}
+
+.overlay__fireflies span:nth-child(3) {
+  top: 62%;
+  left: 28%;
+  --delta-x: 20%;
+  --delta-y: -28%;
+  --travel-duration: 18s;
+  --blink-duration: 3.4s;
+}
+
+.overlay__fireflies span:nth-child(4) {
+  top: 68%;
+  left: 72%;
+  --delta-x: -16%;
+  --delta-y: -24%;
+  --travel-duration: 20s;
+  --blink-duration: 3.8s;
+}
+
+.overlay__fireflies span:nth-child(5) {
+  top: 8%;
+  left: 74%;
+  --delta-x: -12%;
+  --delta-y: 14%;
+  --travel-duration: 15s;
+}
+
+.overlay__fireflies span:nth-child(6) {
+  top: 46%;
+  left: 12%;
+  --delta-x: 18%;
+  --delta-y: -10%;
+  --travel-duration: 17s;
+}
+
+.overlay__fireflies span:nth-child(7) {
+  top: 35%;
+  left: 84%;
+  --delta-x: -26%;
+  --delta-y: -18%;
+  --travel-duration: 19s;
+  --blink-duration: 3.2s;
+}
+
+.overlay__fireflies span:nth-child(8) {
+  top: 78%;
+  left: 48%;
+  --delta-x: 6%;
+  --delta-y: -28%;
+  --travel-duration: 21s;
+}
+
+.overlay__fireflies span:nth-child(9) {
+  top: 32%;
+  left: 36%;
+  --delta-x: 10%;
+  --delta-y: -6%;
+  --travel-duration: 11s;
+}
+
+.overlay__fireflies span:nth-child(10) {
+  top: 52%;
+  left: 66%;
+  --delta-x: -24%;
+  --delta-y: -14%;
+  --travel-duration: 18s;
+  --blink-duration: 3.9s;
+}
+
+.overlay__fireflies span:nth-child(11) {
+  top: 12%;
+  left: 42%;
+  --delta-x: 8%;
+  --delta-y: -18%;
+  --travel-duration: 14s;
+  --blink-duration: 2.6s;
+}
+
+.overlay__fireflies span:nth-child(12) {
+  top: 58%;
+  left: 54%;
+  --delta-x: -18%;
+  --delta-y: -22%;
+  --travel-duration: 19s;
+  --blink-duration: 3.5s;
+}
+
+@keyframes fireflyDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.65);
+  }
+  45% {
+    transform: translate3d(var(--delta-x), var(--delta-y), 0) scale(1);
+  }
+  70% {
+    transform: translate3d(calc(var(--delta-x) * 0.35), calc(var(--delta-y) * 0.35), 0)
+      scale(0.85);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.6);
+  }
+}
+
+@keyframes fireflyBlink {
+  0% {
+    opacity: 0.25;
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.15;
+  }
 }
 
 .overlay.overlay--hidden {
