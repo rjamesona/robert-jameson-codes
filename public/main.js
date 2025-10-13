@@ -290,16 +290,16 @@ const flowerTypes = [
       });
       buildRingPetals(head, outerMaterial, {
         count: 28,
-        length: 1.15 * headScale,
-        width: 0.34 * headScale,
-        radius: 0.16 * headScale,
-        tilt: THREE.MathUtils.degToRad(58),
+        length: 1.15 * 1.1 * headScale,
+        width: 0.29 * headScale,
+        radius: 0.18 * headScale,
+        tilt: THREE.MathUtils.degToRad(60),
         offsetY: 0.05 * headScale,
-        randomness: 0.06,
-        taper: 0.32,
-        curl: 0.16,
-        tipCurl: 0.24,
-        arch: 0.14
+        randomness: 0.11,
+        taper: 0.34,
+        curl: 0.17,
+        tipCurl: 0.26,
+        arch: 0.15
       });
 
       const innerColor = baseColor.clone().lerp(new THREE.Color('#ffe27b'), 0.4);
@@ -311,16 +311,16 @@ const flowerTypes = [
       });
       buildRingPetals(head, innerMaterial, {
         count: 18,
-        length: 0.82 * headScale,
-        width: 0.26 * headScale,
-        radius: 0.1 * headScale,
-        tilt: THREE.MathUtils.degToRad(52),
+        length: 0.82 * 1.1 * headScale,
+        width: 0.22 * headScale,
+        radius: 0.12 * headScale,
+        tilt: THREE.MathUtils.degToRad(54),
         offsetY: 0.12 * headScale,
-        randomness: 0.05,
-        taper: 0.3,
-        curl: 0.18,
-        tipCurl: 0.22,
-        arch: 0.12
+        randomness: 0.09,
+        taper: 0.32,
+        curl: 0.19,
+        tipCurl: 0.24,
+        arch: 0.13
       });
     },
     createCore(head, baseColor, headScale = 1) {
