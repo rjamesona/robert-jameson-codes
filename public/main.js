@@ -271,11 +271,8 @@ function buildRingPetals(head, material, options = {}) {
     const randomTilt = (Math.random() - 0.5) * safeRandomness;
     const randomTwist = (Math.random() - 0.5) * safeRandomness * 0.8;
     const baseBend = THREE.MathUtils.degToRad(THREE.MathUtils.randFloatSpread(4));
-    petal.position.set(
-      directionX * safeRadius,
-      safeOffsetY,
-      directionZ * safeRadius
-    );
+    const openRadius = hasBudRadius ? Math.max(safeRadius, safeBudRadius) : safeRadius;
+    petal.position.set(directionX * openRadius, safeOffsetY, directionZ * openRadius);
     petal.rotation.set(safeTilt + randomTilt, angle + safeTwist, baseBend + randomTwist);
     petal.userData.baseRotationX = petal.rotation.x;
     petal.userData.closedRotationX = petal.userData.baseRotationX + THREE.MathUtils.degToRad(48);
@@ -283,11 +280,16 @@ function buildRingPetals(head, material, options = {}) {
     petal.rotation.x = petal.userData.closedRotationX;
     petal.scale.setScalar(petal.userData.baseScale * 0.86);
     petal.userData.basePosition = petal.position.clone();
-    const baseRadius = Math.hypot(petal.userData.basePosition.x, petal.userData.basePosition.z);
-    const closedRadiusSource = safeBudRadius ?? baseRadius;
+    const computedBaseRadius = Math.hypot(
+      petal.userData.basePosition.x,
+      petal.userData.basePosition.z
+    );
+    const closedRadiusSource = safeBudRadius ?? computedBaseRadius;
     const closedRadius = closedRadiusSource * closedRadiusFactor;
-    const targetDirectionX = baseRadius > 0 ? petal.userData.basePosition.x / baseRadius : directionX;
-    const targetDirectionZ = baseRadius > 0 ? petal.userData.basePosition.z / baseRadius : directionZ;
+    const targetDirectionX =
+      computedBaseRadius > 0 ? petal.userData.basePosition.x / computedBaseRadius : directionX;
+    const targetDirectionZ =
+      computedBaseRadius > 0 ? petal.userData.basePosition.z / computedBaseRadius : directionZ;
     petal.userData.closedPosition = new THREE.Vector3(
       targetDirectionX * closedRadius,
       safeOffsetY,
