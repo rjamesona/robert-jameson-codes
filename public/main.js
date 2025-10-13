@@ -36,11 +36,8 @@ rimLight.position.set(-6, 5, -4);
 scene.add(rimLight);
 
 const flowers = [];
-let flowerCount = 0;
-const MIN_FLOWER_COUNT = 24;
-const MAX_FLOWER_COUNT = 72;
-const FLOWER_AREA_PER_PLANT = 20000;
-const FLOWER_HEIGHT_MULTIPLIER = 1.2;
+const flowerCount = 48;
+const FLOWER_HEIGHT_MULTIPLIER = 0.6;
 const FLOWER_HEAD_SCALE = 0.7;
 const STEM_THICKNESS_RANGE = { min: 0.45, max: 0.65 };
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
@@ -71,9 +68,14 @@ function randomFloatInRange([min, max]) {
 
 const pastelGoldenRatio = 0.61803398875;
 
-function toFiniteNumber(value, fallback) {
+function toFiniteNumber(value, fallback = 0) {
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : fallback;
+  if (Number.isFinite(numeric)) {
+    return numeric;
+  }
+
+  const fallbackNumeric = Number(fallback);
+  return Number.isFinite(fallbackNumeric) ? fallbackNumeric : 0;
 }
 
 function getPastelColor(index) {
@@ -132,9 +134,16 @@ function createCurvedPetalGeometry({
   tipCurl = 0.35,
   arch = 0.18
 }) {
-  const safeSegments = Math.max(Math.floor(toFiniteNumber(segments, 8)), 1);
-  const safeLength = Math.max(Math.abs(toFiniteNumber(length, 1)), 0.001);
-  const safeWidth = Math.max(Math.abs(toFiniteNumber(width, 1)), 0.001);
+  const segmentCount = Math.floor(toFiniteNumber(segments, 8));
+  const safeSegments = Math.max(Number.isFinite(segmentCount) ? segmentCount : 8, 1);
+
+  const rawLength = Math.abs(toFiniteNumber(length, 1));
+  const safeLength = Math.max(Number.isFinite(rawLength) ? rawLength : 1, 0.001);
+  const halfLength = safeLength / 2;
+
+  const rawWidth = Math.abs(toFiniteNumber(width, 1));
+  const safeWidth = Math.max(Number.isFinite(rawWidth) ? rawWidth : 1, 0.001);
+
   const safeTaper = toFiniteNumber(taper, 0.28);
   const safeCurl = toFiniteNumber(curl, 0.22);
   const safeTipCurl = toFiniteNumber(tipCurl, 0.35);
@@ -146,16 +155,18 @@ function createCurvedPetalGeometry({
 
   for (let i = 0; i < position.count; i++) {
     temp.fromBufferAttribute(position, i);
-    const progress = (temp.y + safeLength / 2) / safeLength;
-    const taperedX = temp.x * THREE.MathUtils.lerp(1, safeTaper, progress);
-    const forwardCurl = Math.sin(progress * Math.PI * 0.85) * safeCurl * safeLength;
-    const tipLift = Math.pow(progress, 2.1) * safeTipCurl * safeLength;
-    const verticalArch = Math.sin(progress * Math.PI) * safeArch * safeLength;
+    const localY = toFiniteNumber(temp.y + halfLength, halfLength);
+    const progress = THREE.MathUtils.clamp(toFiniteNumber(localY / safeLength, 0), 0, 1);
+    const taperedX = toFiniteNumber(temp.x * THREE.MathUtils.lerp(1, safeTaper, progress), 0);
+    const forwardCurl = toFiniteNumber(
+      Math.sin(progress * Math.PI * 0.85) * safeCurl * safeLength,
+      0
+    );
+    const tipLift = toFiniteNumber(Math.pow(progress, 2.1) * safeTipCurl * safeLength, 0);
+    const verticalArch = toFiniteNumber(Math.sin(progress * Math.PI) * safeArch * safeLength, 0);
+    const curvedZ = toFiniteNumber(forwardCurl + tipLift + verticalArch, 0);
 
-    temp.set(taperedX, temp.y + safeLength / 2, forwardCurl + tipLift);
-    temp.z += verticalArch;
-
-    position.setXYZ(i, temp.x, temp.y, temp.z);
+    position.setXYZ(i, taperedX, localY, curvedZ);
   }
 
   position.needsUpdate = true;
@@ -647,7 +658,51 @@ const fireflyMaterial = new THREE.ShaderMaterial({
 const fireflies = new THREE.Points(fireflyGeometry, fireflyMaterial);
 scene.add(fireflies);
 
+// Cursor-following firefly
+const guideFireflyGeometry = new THREE.BufferGeometry();
+guideFireflyGeometry.setAttribute(
+  'position',
+  new THREE.Float32BufferAttribute([0, 0, 0], 3)
+);
+
+const guideFireflyMaterial = new THREE.ShaderMaterial({
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  uniforms: {
+    uTime: { value: 0 }
+  },
+  vertexShader: `
+    uniform float uTime;
+    varying float vBlink;
+    void main() {
+      vBlink = sin(uTime * 2.0) * 0.5 + 0.5;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      float size = mix(18.0, 26.0, vBlink);
+      gl_PointSize = size / -mvPosition.z;
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: `
+    varying float vBlink;
+    void main() {
+      float dist = length(gl_PointCoord - vec2(0.5));
+      float alpha = smoothstep(0.45, 0.0, dist);
+      vec3 warmGlow = vec3(1.0, 0.93, 0.66);
+      vec3 coolGlow = vec3(0.66, 0.86, 1.0);
+      vec3 color = mix(warmGlow, coolGlow, vBlink);
+      gl_FragColor = vec4(color, alpha);
+    }
+  `
+});
+
+const guideFirefly = new THREE.Points(guideFireflyGeometry, guideFireflyMaterial);
+guideFirefly.frustumCulled = false;
+scene.add(guideFirefly);
+
 const pointer = new THREE.Vector2(0, 0);
+const pointerSmoothed = new THREE.Vector2(0, 0);
+const POINTER_RESPONSE = 0.1;
 const targetRotation = new THREE.Euler();
 const pointerOffset = new THREE.Vector3();
 const pointerWorldTarget = new THREE.Vector3();
@@ -655,6 +710,8 @@ const pointerWorldCurrent = new THREE.Vector3();
 const pointerDirection = new THREE.Vector3();
 const raycaster = new THREE.Raycaster();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const guideFireflyPosition = new THREE.Vector3(0, 0.9, 0);
+const guideFireflyTarget = new THREE.Vector3();
 
 function handlePointer(event) {
   const x = event.clientX ?? (event.touches && event.touches[0]?.clientX) ?? 0;
@@ -675,13 +732,15 @@ function animate() {
   const delta = Math.min(elapsed - previousElapsed, 0.1);
   previousElapsed = elapsed;
 
-  raycaster.setFromCamera(pointer, camera);
+  pointerSmoothed.lerp(pointer, POINTER_RESPONSE);
+
+  raycaster.setFromCamera(pointerSmoothed, camera);
   if (!raycaster.ray.intersectPlane(groundPlane, pointerWorldTarget)) {
     pointerWorldTarget.set(0, 0, 0);
   }
   pointerWorldCurrent.lerp(pointerWorldTarget, 0.08);
 
-  targetRotation.set(pointer.y * 0.1, pointer.x * 0.25, 0);
+  targetRotation.set(pointerSmoothed.y * 0.1, pointerSmoothed.x * 0.25, 0);
   scene.rotation.x = THREE.MathUtils.lerp(scene.rotation.x, targetRotation.x, 0.02);
   scene.rotation.y = THREE.MathUtils.lerp(scene.rotation.y, targetRotation.y, 0.03);
 
@@ -715,7 +774,11 @@ function animate() {
       flower.swayAmount * 0.85;
     const bob = Math.sin(elapsed * flower.bobSpeed + flower.swingPhase) * flower.bobAmount;
 
-    pointerOffset.set(pointer.x * 0.45, pointer.y * 0.35, pointer.x * 0.4);
+    pointerOffset.set(
+      pointerSmoothed.x * 0.45,
+      pointerSmoothed.y * 0.35,
+      pointerSmoothed.x * 0.4
+    );
     pointerOffset.multiplyScalar(flower.pointerInfluence * reactionProgress);
 
     flower.headTarget.set(
@@ -736,8 +799,8 @@ function animate() {
 
     const gentleNod =
       Math.sin(elapsed * 0.08 + flower.basePhase * 0.6) * THREE.MathUtils.degToRad(2.5);
-    const pointerTiltX = THREE.MathUtils.degToRad(9) * pointer.y * reactionProgress;
-    const pointerTiltZ = THREE.MathUtils.degToRad(-7) * pointer.x * reactionProgress;
+    const pointerTiltX = THREE.MathUtils.degToRad(9) * pointerSmoothed.y * reactionProgress;
+    const pointerTiltZ = THREE.MathUtils.degToRad(-7) * pointerSmoothed.x * reactionProgress;
 
     pointerDirection.copy(pointerWorldCurrent).sub(flower.position);
     const planarDistanceSq =
@@ -785,12 +848,25 @@ function animate() {
     flower.position.z = THREE.MathUtils.lerp(flower.position.z, baseTargetZ, 0.02);
 
     const rotationTargetX =
-      pointer.y * 0.06 * reactionProgress +
+      pointerSmoothed.y * 0.06 * reactionProgress +
       Math.sin(elapsed * 0.12 + flower.swingPhase) * 0.04;
     flower.rotation.x = THREE.MathUtils.lerp(flower.rotation.x, rotationTargetX, 0.03);
   });
 
   fireflyMaterial.uniforms.uTime.value = elapsed;
+  guideFireflyMaterial.uniforms.uTime.value = elapsed;
+
+  guideFireflyTarget.copy(pointerWorldTarget);
+  guideFireflyTarget.y += 0.85;
+  const slowFrames = Math.max(delta * 60, 1);
+  const followAmount = 1 - Math.pow(1 - 0.015, slowFrames);
+  guideFireflyPosition.lerp(guideFireflyTarget, followAmount);
+  const hover = Math.sin(elapsed * 2.2) * 0.05 + Math.sin(elapsed * 1.1) * 0.025;
+  guideFirefly.position.set(
+    guideFireflyPosition.x,
+    guideFireflyPosition.y + hover,
+    guideFireflyPosition.z
+  );
 
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
