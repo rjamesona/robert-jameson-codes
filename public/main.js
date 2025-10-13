@@ -235,6 +235,17 @@ function buildRingPetals(head, material, options = {}) {
   const safeArch = toFiniteNumber(arch, 0.16);
 
   const group = new THREE.Group();
+  const petals = [];
+  const baseOpacity = THREE.MathUtils.clamp(toFiniteNumber(material.opacity, 1), 0, 1);
+  group.userData = {
+    petals,
+    baseScale: 1,
+    closedScale: 0.22,
+    baseOpacity,
+    material
+  };
+  group.scale.setScalar(group.userData.closedScale);
+  group.userData.material.opacity = 0;
 
   for (let i = 0; i < safeCount; i++) {
     const petalGeometry = createCurvedPetalGeometry({
@@ -258,12 +269,58 @@ function buildRingPetals(head, material, options = {}) {
       Math.sin(angle) * safeRadius
     );
     petal.rotation.set(safeTilt + randomTilt, angle + safeTwist, baseBend + randomTwist);
+    petal.userData.baseRotationX = petal.rotation.x;
+    petal.userData.closedRotationX = petal.userData.baseRotationX + THREE.MathUtils.degToRad(48);
+    petal.userData.baseScale = 1;
+    petal.rotation.x = petal.userData.closedRotationX;
+    petal.scale.setScalar(petal.userData.baseScale * 0.86);
     petal.castShadow = false;
     petal.receiveShadow = false;
+    petals.push(petal);
     group.add(petal);
   }
 
   head.add(group);
+  if (!Array.isArray(head.userData?.petalRings)) {
+    head.userData = { ...(head.userData ?? {}), petalRings: [] };
+  }
+  head.userData.petalRings.push(group);
+}
+
+function updatePetalBloom(flower, progress) {
+  const safeProgress = THREE.MathUtils.clamp(toFiniteNumber(progress, 0), 0, 1);
+  const easedProgress = slowStartRamp(safeProgress);
+  const petalRings = flower.head?.userData?.petalRings;
+  if (!Array.isArray(petalRings) || petalRings.length === 0) {
+    return;
+  }
+
+  petalRings.forEach((ring, index) => {
+    const ringUserData = ring.userData ?? {};
+    const ringDelay = THREE.MathUtils.clamp(index * 0.12, 0, 0.6);
+    const adjustedProgress = THREE.MathUtils.clamp(easedProgress - ringDelay, 0, 1);
+    const ringProgress = THREE.MathUtils.clamp(slowStartRamp(adjustedProgress), 0, 1);
+    const closedScale = toFiniteNumber(ringUserData.closedScale, 0.22);
+    const baseScale = toFiniteNumber(ringUserData.baseScale, 1);
+    const scale = THREE.MathUtils.lerp(closedScale, baseScale, ringProgress);
+    ring.scale.setScalar(scale);
+
+    if (ringUserData.material) {
+      const targetOpacity = THREE.MathUtils.lerp(0, ringUserData.baseOpacity ?? 1, ringProgress);
+      ringUserData.material.opacity = targetOpacity;
+    }
+
+    const petals = ringUserData.petals ?? [];
+    petals.forEach((petal) => {
+      const baseRotation = toFiniteNumber(petal.userData?.baseRotationX, petal.rotation.x);
+      const closedRotation = toFiniteNumber(petal.userData?.closedRotationX, baseRotation);
+      const petalProgress = slowStartRamp(ringProgress);
+      petal.rotation.x = lerpAngle(closedRotation, baseRotation, petalProgress);
+      const baseScale = toFiniteNumber(petal.userData?.baseScale, 1);
+      const petalScale = THREE.MathUtils.lerp(baseScale * 0.86, baseScale, petalProgress);
+      petal.scale.setScalar(petalScale);
+    });
+  });
 }
 
 const flowerTypes = [
@@ -399,6 +456,7 @@ function createFlower(index) {
   const root = new THREE.Group();
 
   const head = new THREE.Group();
+  head.userData = { petalRings: [] };
   const baseHeadScale = toFiniteNumber(type.headScale, 1);
   const headScale = baseHeadScale * FLOWER_HEAD_SCALE;
   const baseColor = type.palette[Math.floor(Math.random() * type.palette.length)].clone();
@@ -478,6 +536,9 @@ function createFlower(index) {
   root.headSpinAngle = Math.random() * Math.PI * 2;
   root.headTargetQuat = new THREE.Quaternion().copy(head.quaternion);
   root.headCurrentQuat = new THREE.Quaternion().copy(head.quaternion);
+
+  root.bloomProgress = 0;
+  root.bloomDuration = 10;
 
   const initialThickness = THREE.MathUtils.lerp(
     root.minStemThickness,
@@ -678,12 +739,34 @@ const raycaster = new THREE.Raycaster();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const guideFireflyPosition = new THREE.Vector3(0, 0.9, 0);
 const guideFireflyTarget = new THREE.Vector3();
+const BLOOM_DELAY_SECONDS = 1.2;
+const BLOOM_DURATION_SECONDS = 10;
+const BLOOM_POINTER_ACTIVATION_DISTANCE = 8;
+const BLOOM_POINTER_ACTIVATION_DISTANCE_SQ =
+  BLOOM_POINTER_ACTIVATION_DISTANCE * BLOOM_POINTER_ACTIVATION_DISTANCE;
+let bloomTriggerTimestamp = null;
+let bloomStartElapsed = null;
+let bloomActivationOrigin = null;
 
 function handlePointer(event) {
-  const x = event.clientX ?? (event.touches && event.touches[0]?.clientX) ?? 0;
-  const y = event.clientY ?? (event.touches && event.touches[0]?.clientY) ?? 0;
-  pointer.x = (x / window.innerWidth) * 2 - 1;
-  pointer.y = -((y / window.innerHeight) * 2 - 1);
+  const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
+  const clientY = event.clientY ?? event.touches?.[0]?.clientY ?? 0;
+
+  pointer.x = (clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -((clientY / window.innerHeight) * 2 - 1);
+
+  if (bloomTriggerTimestamp === null) {
+    if (bloomActivationOrigin === null) {
+      bloomActivationOrigin = { x: clientX, y: clientY };
+    } else {
+      const dx = clientX - bloomActivationOrigin.x;
+      const dy = clientY - bloomActivationOrigin.y;
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq >= BLOOM_POINTER_ACTIVATION_DISTANCE_SQ) {
+        bloomTriggerTimestamp = performance.now();
+      }
+    }
+  }
 }
 
 window.addEventListener('pointermove', handlePointer, { passive: true });
@@ -697,6 +780,24 @@ function animate() {
   const elapsed = clock.getElapsedTime();
   const delta = Math.min(elapsed - previousElapsed, 0.1);
   previousElapsed = elapsed;
+
+  if (bloomTriggerTimestamp !== null && bloomStartElapsed === null) {
+    const now = performance.now();
+    if (now - bloomTriggerTimestamp >= BLOOM_DELAY_SECONDS * 1000) {
+      bloomStartElapsed = elapsed;
+    }
+  }
+
+  let bloomProgress = 0;
+  if (bloomStartElapsed !== null) {
+    const bloomElapsed = Math.max(0, elapsed - bloomStartElapsed);
+    bloomProgress = THREE.MathUtils.clamp(
+      bloomElapsed / BLOOM_DURATION_SECONDS,
+      0,
+      1
+    );
+  }
+  const bloomElapsedSeconds = bloomProgress * BLOOM_DURATION_SECONDS;
 
   pointerSmoothed.lerp(pointer, POINTER_RESPONSE);
 
@@ -715,6 +816,17 @@ function animate() {
   camera.lookAt(0, 0.6, 0);
 
   flowers.forEach((flower) => {
+    const bloomDuration = Math.max(
+      toFiniteNumber(flower.bloomDuration, BLOOM_DURATION_SECONDS),
+      0.0001
+    );
+    const flowerBloomProgress = THREE.MathUtils.clamp(
+      bloomElapsedSeconds / bloomDuration,
+      0,
+      1
+    );
+    flower.bloomProgress = flowerBloomProgress;
+    updatePetalBloom(flower, flowerBloomProgress);
     const timeSinceStart = Math.max(0, elapsed - flower.followDelay);
     const ramp = THREE.MathUtils.clamp(timeSinceStart / flower.rampDuration, 0, 1);
     const eased = slowStartRamp(ramp);
