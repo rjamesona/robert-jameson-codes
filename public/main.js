@@ -45,11 +45,15 @@ rimLight.position.set(-6, 5, -4);
 scene.add(rimLight);
 
 const flowers = [];
-const flowerCount = 48;
+let flowerCount = 48;
 const FLOWER_HEIGHT_MULTIPLIER = 0.6;
 const FLOWER_HEAD_SCALE = 0.7;
 const STEM_THICKNESS_RANGE = { min: 0.45, max: 0.65 };
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+
+const FLOWER_AREA_PER_PLANT = 45000;
+const MIN_FLOWER_COUNT = 24;
+const MAX_FLOWER_COUNT = 120;
 
 function calculateFlowerCount() {
   const viewportArea = Math.max(window.innerWidth * window.innerHeight, 1);
